@@ -9,7 +9,9 @@ from SBB.Numpy_extra.numpy_extra import reshape_axis,slice_axes
 
 import pdb
 
-def reshape_reorder_swap(Y,l,axis=-1,sym=True,ref='interlaced'):
+def reshape_reorder_swap(Y,l,axis=-1,sym=True,ref='interlaced',copy=True):
+    if copy : # if false the original array is modified
+        Y = Y.copy() 
     ax = range(Y.ndim)[axis] # conveting to positive only axis
     # Reshape
     if sym and (ref is 'interlaced') :
