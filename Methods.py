@@ -7,8 +7,6 @@ from SBB.Phys.Tunnel_Junction import Sdc_of_f,V_th
 from SBB.Data_analysis.fit import polyfit_multi_between,lstsq,lstsq_2D
 from SBB.Numpy_extra.numpy_extra import reshape_axis,slice_axes
 
-import pdb
-
 def reshape_reorder_swap(Y,l,axis=-1,sym=True,ref='interlaced',copy=True):
     if copy : # if false the original array is modified
         Y = Y.copy() 
