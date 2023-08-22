@@ -51,5 +51,7 @@
 #Directory to ignore
 build/
 dist/
+test/
 *.egg-info/
 *.eggs/
+
