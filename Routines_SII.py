@@ -18,26 +18,28 @@ from SBB.Data_analysis.fit import polyfit_multi_between,polyfit_multi_check,lsts
 from SBB.Phys.Tunnel_Junction import Sdc_of_f,Sdc_asym_of_f
 from SBB.Data_Manager.Data_Manager import remove_nan_subarrays
 
-from Methods import build_imin_imax,reshape_reorder_all,reshape_reorder_all_1,reshape_reorder_dSII,centered_refed_dSII,dSII_reshape_reorder, centered_ref_X,V_jct_unreshape_reorder
+from Methods import build_imin_imax, centered_ref_X,V_jct_unreshape_reorder
 from SBB.Pyhegel_extra.Experiment import get_all_with_key
 
 _dt = 31.25e-12
 
 
-def ROUTINE_SCOPE_0(Vyoko,Vjct,Vpol,SII,Rpol,V_per_bin,flip_Ipol=False) :
+def ROUTINE_SCOPE_0(Vyoko,Vjct,Vpol,SII,Rpol,V_per_bin,flip_Ipol=False,sym=True,ref='interlaced') :
     """
        
     """
-    
     Vjct = remove_nan_subarrays(Vjct)
     Vpol = remove_nan_subarrays(Vpol)
     SII  = remove_nan_subarrays(SII)
         
     SII   = SII*(V_per_bin)**2 / 50.0**2 ## A**2
-    dSII = centered_refed_dSII(SII)
-    Vyoko,Vjct,Vpol,Sii,dSii = reshape_reorder_all(Vyoko,Vjct,Vpol,SII,dSII)
+    dSII = centered_ref_X(SII,axis=-2)
     
-    
+    Vyoko   = reshape_reorder_swap(Vyoko,axis=-1,sym=sym,ref=ref)
+    V_jct = reshape_reorder_swap(V_jct,axis=-1,sym=sym,ref=ref)
+    V_pol = reshape_reorder_swap(V_pol,axis=-1,sym=sym,ref=ref)
+    SII_dc   = reshape_reorder_swap(SII_dc,axis=-2,sym=sym,ref=ref)
+    dSII_dc  = reshape_reorder_swap(dSII_dc,axis=-2,sym=sym,ref='first')
     
     if flip_Ipol :
         Ipol = (-1)*_np.nanmean( Vpol/Rpol, axis = 0 )
@@ -52,8 +54,12 @@ def ROUTINE_SCOPE_1(Vyoko,SII,Rtot,V_per_bin) :
     """
     SII  = remove_nan_subarrays(SII)
     SII   = SII*(V_per_bin)**2 / 50.0**2 ## A**2
-    dSII = centered_refed_dSII(SII)
-    Vyoko,Sii,dSii = reshape_reorder_all_1(Vyoko,SII,dSII)
+    dSII = centered_ref_X(SII,axis=-2)
+   
+    Vdc   = reshape_reorder_swap(Vdc,axis=-1,sym=sym,ref=ref)
+    SII_dc   = reshape_reorder_swap(SII_dc,axis=-2,sym=sym,ref=ref)
+    dSII_dc  = reshape_reorder_swap(dSII_dc,axis=-2,sym=sym,ref='first')
+    
     Ipol = Vyoko/Rtot
     return Ipol,Sii,dSii
 
@@ -104,7 +110,7 @@ def ROUTINE_COMBINE_LOAD_0(files) :
         V_pol = get_all_with_key(files,'V_pol',)
     V_jct = get_all_with_key(files,'V_jct',)
     SII   = get_all_with_key(files,'SII',)
-    dSII  = [centered_refed_dSII(sii) for sii in SII]  
+    dSII  = [centered_ref_X(sii,axis=-2) for sii in SII]  
     return Vdc,V_pol,V_jct,SII, dSII
 
 def ROUTINE_COMBINE_LOAD_1(files) :
@@ -114,7 +120,7 @@ def ROUTINE_COMBINE_LOAD_1(files) :
     """
     Vdc   = get_all_with_key(files,'Vdc',)
     SII   = get_all_with_key(files,'SII',)
-    dSII  = [centered_refed_dSII(sii) for sii in SII]  
+    dSII  = [centered_ref_X(sii,axis=-2) for sii in SII]  
     return Vdc,SII, dSII
     
 def ROUTINE_COMBINE_LOAD_2(files) :
@@ -127,9 +133,9 @@ def ROUTINE_COMBINE_LOAD_2(files) :
     Labels  = get_all_with_key(files,'_meta_info',EVAL="[()]['filter_info']['labels']")
     
     SII_dc   = get_all_with_key(files,'S2_vdc',)
-    dSII_dc  = [centered_refed_dSII(sii) for sii in SII_dc]
+    dSII_dc  = [centered_ref_X(sii,axis=-2) for sii in SII_dc]
     SII_ac   = get_all_with_key(files,'S2_vac',)
-    dSII_ac  = [centered_refed_dSII(sii) for sii in SII_ac]
+    dSII_ac  = [centered_ref_X(sii,axis=-2) for sii in SII_ac]
     
     ks    = get_all_with_key(files,'ks',)
     betas    = get_all_with_key(files,'betas',)
@@ -308,7 +314,7 @@ def ROUTINE_SII_2(SII,fast=True,windowing=True,i=65) :
         SII  = _np.nanmean(SII ,axis = 0)[None,...]
     if windowing :
         SII    = window_after(SII , i=i, t_demi=1)
-    SII_of_f        =  ( rfft(ifftshift(symetrize(SII_sym)   ,axes=-1))*_dt ).real  
+    SII_of_f        =  ( rfft(ifftshift(symetrize(SII)   ,axes=-1))*_dt ).real  
     return SII_of_f
         
 def ROUTINE_GAIN_0 (freq,ipol,SII_of_f,dSII_of_f,degree = 1,R=70.00,T_xpctd=0.055,fmax =10.e9,imax=2.0e-6,epsilon=0.0001):
@@ -373,15 +379,18 @@ def ROUTINE_GAIN_3 (freq,ipol,SII_of_f,dSII_of_f,gain_fit_params):
     
     return B_of_f, dG_of_f, dB_of_f
     
-def ROUTINE_AVG_GAIN(Vyoko,SII,Rtot,V_per_bin,l_kernel,gain_fit_params,windowing=True,i=65):
+def ROUTINE_AVG_GAIN(Vyoko,SII,Rtot,V_per_bin,l_kernel,gain_fit_params,windowing=True,i=65,sym=True,ref='interlaced'):
     """
     Intended for quadrature experiments
     Return dG_of_f
         No dmm ==> Ipol deduced from R_tot
     """ 
     SII  = _np.nanmean(SII,axis=0)[None,:]*(V_per_bin)**2 / 50.0**2 ## A**2
-    dSII = centered_refed_dSII(SII)
-    Vyoko,dSII = reshape_reorder_dSII(Vyoko,dSII)
+    dSII = centered_ref_X(SII,axis=-2)
+     
+    Vyoko   = reshape_reorder_swap(Vyoko,axis=-1,sym=sym,ref=ref)
+    dSII_dc = reshape_reorder_swap(dSII_dc,axis=-2,sym=sym,ref='first')
+      
     Ipol = Vyoko[1,1]/Rtot
     freq = rfftfreq(l_kernel,_dt)
     if windowing :
