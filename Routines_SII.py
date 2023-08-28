@@ -15,13 +15,14 @@ from SBB.Data_analysis.window import window_after
 from SBB.Math_extra.Math_extra import central_derivative_3points
 from SBB.Numpy_extra.numpy_extra import symetrize,find_nearest_A_to_a
 from SBB.Data_analysis.fit import polyfit_multi_between,polyfit_multi_check,lstsq,lstsq_2D
-from SBB.Phys.Tunnel_Junction import Sdc_of_f
+from SBB.Phys.Tunnel_Junction import Sdc_of_f,Sdc_asym_of_f
 from SBB.Data_Manager.Data_Manager import remove_nan_subarrays
 
 from Methods import build_imin_imax,reshape_reorder_all,reshape_reorder_all_1,reshape_reorder_dSII,centered_refed_dSII,dSII_reshape_reorder, centered_ref_X,V_jct_unreshape_reorder
 from SBB.Pyhegel_extra.Experiment import get_all_with_key
 
 _dt = 31.25e-12
+
 
 def ROUTINE_SCOPE_0(Vyoko,Vjct,Vpol,SII,Rpol,V_per_bin,flip_Ipol=False) :
     """
@@ -35,6 +36,9 @@ def ROUTINE_SCOPE_0(Vyoko,Vjct,Vpol,SII,Rpol,V_per_bin,flip_Ipol=False) :
     SII   = SII*(V_per_bin)**2 / 50.0**2 ## A**2
     dSII = centered_refed_dSII(SII)
     Vyoko,Vjct,Vpol,Sii,dSii = reshape_reorder_all(Vyoko,Vjct,Vpol,SII,dSII)
+    
+    
+    
     if flip_Ipol :
         Ipol = (-1)*_np.nanmean( Vpol/Rpol, axis = 0 )
     else: 
@@ -293,6 +297,19 @@ def ROUTINE_SII_1(dSII,fast=True,windowing=True,i=65) :
     dSII_of_f        =  ( rfft(ifftshift(symetrize(dSII_sym)   ,axes=-1))*_dt ).real
     
     return dSII_of_f
+
+def ROUTINE_SII_2(SII,fast=True,windowing=True,i=65) :
+    """
+    Computes different noise_of_f metrics.
+    Returns 
+        SII_of_f,
+    """
+    if fast :
+        SII  = _np.nanmean(SII ,axis = 0)[None,...]
+    if windowing :
+        SII    = window_after(SII , i=i, t_demi=1)
+    SII_of_f        =  ( rfft(ifftshift(symetrize(SII_sym)   ,axes=-1))*_dt ).real  
+    return SII_of_f
         
 def ROUTINE_GAIN_0 (freq,ipol,SII_of_f,dSII_of_f,degree = 1,R=70.00,T_xpctd=0.055,fmax =10.e9,imax=2.0e-6,epsilon=0.0001):
     """
@@ -472,7 +489,7 @@ def ROUTINE_FIT_TvsF(ipol,freq,dSIIx,Rjct=70.0,T_xpctd=0.055,tol=1e-15):
         Temps += [ lstsq(ipol,_np.nanmean(sii,axis=0),p0,fit_func,tol=tol)[0][0],]
     Temps = _np.r_[Temps]
     return Temps
-    
+  
 def ROUTINE_COULBLOCK_FIT_TvsF(ipol,freq,dSIIx,RvsI,T_xpctd=0.055,tol=1e-15):
     """
     Temperature fit for each frequency
@@ -506,3 +523,28 @@ def ROUTINE_TEMP_in_TIME(ipol,freq,dSII,R,imax=0.8e-6,fmin=3.1e9,fmax=10.0e9,fas
         tmp = find_T_between(n_being,n_end,dSII)
         Te_fit +=[ tmp ]
     return _np.r_[Te_fit]
+
+def FIT_I0 (ipol,freq,dSII_asym,i_slice=slice(None),f_slice=slice(15,80),R_xptd=50.0,T_xpctd=0.016,tol=1e-15):
+    def fit_func_2D(I,f,p):
+        i0 = p[0]
+        tmp = Sdc_asym_of_f(2*pi*f[None,:],(C.e*I*R_xptd/C.hbar)[:,None], C.e*i0*R_xptd/C.hbar,T_xpctd,R_xptd)
+        return tmp.flatten()
+    p0 = [5.0e-9,]
+    data = _np.nanmean(dSII_asym[...,i_slice,f_slice],axis=0)
+    F = lstsq_2D(ipol[i_slice],freq[f_slice],data.flatten(),p0,fit_func_2D,tol=tol)
+    i0 = F[0][0]
+    return i0
+
+def FIT_I0_w_dR (ipol,dr,freq,dSII_asym,i_slice=slice(None),f_slice=slice(15,80),R_xptd=50.0,T_xpctd=0.016,tol=1e-15):
+    def fit_func_2D(X,f,p):
+        I,dR = X[0],X[1]
+        i0 = p[0]
+        R  = R_xptd+dR
+        tmp = Sdc_asym_of_f(2*pi*f[None,:],(C.e*I*R/C.hbar)[:,None], (C.e*i0*R/C.hbar)[:,None],T_xpctd,R[:,None])
+        return tmp.flatten()
+    p0 = [5.0e-9,]
+    data = _np.nanmean(dSII_asym[...,i_slice,f_slice],axis=0)
+    X = [ipol[i_slice],dr[i_slice]]
+    F = lstsq_2D(X,freq[f_slice],data.flatten(),p0,fit_func_2D,tol=tol)
+    i0 = F[0][0]
+    return i0
