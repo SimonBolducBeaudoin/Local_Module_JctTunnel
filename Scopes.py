@@ -9,7 +9,7 @@ from matplotlib import cm
 from SBB.Matplotlib_extra.logic import get_twin,get_twins, get_next_ax
 from SBB.Matplotlib_extra.plot import plot_interval,scope_interval_update
 from SBB.Phys.Phys_Stat import BoseEinstein
-from SBB.Phys.Tunnel_Junction import Sdc_of_f
+from SBB.Phys.Tunnel_Junction import Sdc_of_f,Spa_of_f
 
 def VvsI_scope_0(ipol,Vjct_neg,Vjct_pos,imin=None,imax=None,plot_deviation=True,ax=None):
     if ax is None:
@@ -294,7 +294,66 @@ def Temps_in_Time_scope(Temps,ax=None):
     ax2.set_xlabel('T[mK]')
     return ax
     
+def dSIIacx_Vs_f_scope(iac,freq,dSIIx,iac_slice,f_slice,idc,F,R,Te,alpha,ax=None):
+    omega  = 2*pi*freq
+    nu     = C.e*idc*R/C.hbar
+    iac    = iac*alpha
+    nuac   = C.e*iac*R/C.hbar         
+    Omega  = F*2*pi
+    SII_th = Spa_of_f(omega[None,:],nu,nuac[:,None],Omega,Te,R)
     
+    color_idx = _np.linspace(0, 1, len(iac))
+    dSIIx =  _np.nanmean( dSIIx[:,iac_slice,f_slice],axis=0)
+    SII_th = SII_th[iac_slice,f_slice]
+    iac   = iac[iac_slice]
+    color_idx = color_idx[iac_slice]
+    freq = freq[f_slice]
     
+    if ax is None:
+        fig,ax =subplots(1,1) 
+    if len(ax.lines)==0 : 
+        for sii,siith,iiac ,c_idx in zip ( _np.moveaxis(dSIIx,-2,0),SII_th,iac,color_idx):
+            ax.plot(freq*1e-9,sii,marker='.',markersize=10,linestyle='none',color=cm.cool(c_idx),label='{:0.1f}'.format(10*_np.log10(R*iiac**2/0.001)))
+            ax.plot(freq*1e-9,siith,color=cm.cool(c_idx))       
+        ax.set_ylim(0.7e-25,2.5e-25)
+        ax.set_xlim(0,10.5)
+        ax.grid(True)
+        ax.set_xlabel('f[GHz]')
+        ax.set_ylabel('Spa[A^2/Hz]')
+        ax.legend(loc='upper left',title='Vac [dBm]')
+    else :
+        for i,sii in enumerate( _np.moveaxis(dSIIx,-2,0)):
+            ax.lines[i].set_data(freq*1e-9,sii)
+    return ax 
+
+def dSIIacx_Vs_Iac_scope(iac,freq,dSIIx,iac_slice,f_slice,idc,F,R,Te,alpha,ax=None):
     
+    omega  = 2*pi*freq
+    nu     = C.e*idc*R/C.hbar
+    iac    = iac*alpha
+    nuac   = C.e*iac*R/C.hbar         
+    Omega  = F*2*pi
+    SII_th = Spa_of_f(omega[None,:],nu,nuac[:,None],Omega,Te,R)
     
+    color_idx = _np.linspace(0, 1, len(freq))
+    dSIIx     = _np.nanmean( dSIIx[:,iac_slice,f_slice],axis=0)
+    SII_th    = SII_th[iac_slice,f_slice]
+    iac       = iac[iac_slice]
+    color_idx = color_idx[f_slice]
+    freq      = freq[f_slice]
+    
+    if ax is None:
+        fig,ax =subplots(1,1) 
+    if len(ax.lines)==0 : 
+        for sii,siith,f ,c_idx in zip ( _np.moveaxis(dSIIx,-1,0),_np.moveaxis(SII_th,-1,0),freq,color_idx):
+            ax.plot(iac/_np.sqrt(2)*1e6,sii,marker='.',markersize=10,linestyle='none',color=cm.cool(c_idx),label='{:0.1f}'.format(f*1e-9))
+            ax.plot(iac/_np.sqrt(2)*1e6,siith,color=cm.cool(c_idx))       
+        ax.set_ylim(0,)
+        ax.grid(True)
+        ax.set_xlabel('Iac[uA rms]')
+        ax.set_ylabel('Spa[A^2/Hz]')
+        ax.legend(title='f[GHz]',loc='lower right')
+    else :
+        for i,sii in enumerate( _np.moveaxis(dSIIx,-1,0)):
+            ax.lines[i].set_data(iac/_np.sqrt(2)*1e6,sii)
+    return ax  
