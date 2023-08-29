@@ -13,7 +13,7 @@ from SBB.AutoCorr.AutoCorr_helper                   import binV2_to_A2, SII_dc_o
 from SBB.Numpy_extra.numpy_extra                    import build_array_of_objects
 from SBB.Data_analysis.fit                          import polyfit_above_th
 
-from Routines import ROUTINE_AVG_GAIN
+from Routines_SII import ROUTINE_AVG_GAIN
 
 class dn2_photoexcited_info(Info):
     """

@@ -15,10 +15,10 @@ from SBB.Data_analysis.window import window_after
 from SBB.Math_extra.Math_extra import central_derivative_3points
 from SBB.Numpy_extra.numpy_extra import symetrize,find_nearest_A_to_a
 from SBB.Data_analysis.fit import polyfit_multi_between,polyfit_multi_check,lstsq,lstsq_2D
-from SBB.Phys.Tunnel_Junction import Sdc_of_f,Sdc_asym_of_f
+from SBB.Phys.Tunnel_Junction import Sdc_of_f,Sdc_asym_of_f,Spa_of_f
 from SBB.Data_Manager.Data_Manager import remove_nan_subarrays
 
-from Methods import build_imin_imax, centered_ref_X,V_jct_unreshape_reorder
+from Methods import build_imin_imax, centered_ref_X,V_jct_unreshape_reorder,reshape_reorder_swap
 from SBB.Pyhegel_extra.Experiment import get_all_with_key
 
 _dt = 31.25e-12
@@ -389,7 +389,7 @@ def ROUTINE_AVG_GAIN(Vyoko,SII,Rtot,V_per_bin,l_kernel,gain_fit_params,windowing
     dSII = centered_ref_X(SII,axis=-2)
      
     Vyoko   = reshape_reorder_swap(Vyoko,axis=-1,sym=sym,ref=ref)
-    dSII_dc = reshape_reorder_swap(dSII_dc,axis=-2,sym=sym,ref='first')
+    dSII = reshape_reorder_swap(dSII,axis=-2,sym=sym,ref='first')
       
     Ipol = Vyoko[1,1]/Rtot
     freq = rfftfreq(l_kernel,_dt)
@@ -557,3 +557,21 @@ def FIT_I0_w_dR (ipol,dr,freq,dSII_asym,i_slice=slice(None),f_slice=slice(15,80)
     F = lstsq_2D(X,freq[f_slice],data.flatten(),p0,fit_func_2D,tol=tol)
     i0 = F[0][0]
     return i0
+
+def ROUTINE_FIT_ALPHA (iac,freq,dSIIx,iac_slice,f_slice,idc,F,R,Te,alpha_xpctd=7e-5,tol=1e-15):
+    """
+    Fitting Spa to find the losses (alpha) on the line
+    2D (Iac,f) fit on excess noise
+    """
+    def fit_func_2D(iac,f,p):
+        Iac   = iac*p[0]
+        omega = 2*pi*f
+        nu    = C.e*idc*R/C.hbar
+        nuac  = C.e*Iac*R/C.hbar        
+        Omega = F*2*pi
+        return Spa_of_f(omega[None,:],nu,nuac[:,None],Omega,Te,R).flatten()
+    p0   = [alpha_xpctd,]
+    data = _np.nanmean(dSIIx[:,iac_slice,f_slice],axis=0)
+    FIT = lstsq_2D(iac[iac_slice],freq[f_slice],data.flatten(),p0,fit_func_2D,tol=tol)
+    alpha_fit = FIT[0][0]
+    return alpha_fit
