@@ -98,9 +98,9 @@ def build_imin_imax(freq,shape,R=50.00,T=0.055,fmax =10.e9,imax = 2.1e-6,epsilon
     imin = _np.full(shape,_np.nan)
     for i,f in enumerate(freq) :
         if f < fmax :
-            imin[:,i] = V_th(f,T,epsilon)/R
+            imin[...,i] = V_th(f,T,epsilon)/R
         else :
-            imin[:,i] = V_th(fmax,T,epsilon)/R
+            imin[...,i] = V_th(fmax,T,epsilon)/R
     return imin,imax
     
 def V_jct_unreshape_reorder(Vjct):
