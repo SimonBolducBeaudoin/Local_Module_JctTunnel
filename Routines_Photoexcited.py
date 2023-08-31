@@ -10,10 +10,16 @@ from SBB.Histograms.histograms                      import Histogram_uint64_t_do
 from SBB.Histograms.histograms_helper               import compute_moments
 from SBB.AutoCorr.acorrs_otf                        import ACorrUpTo
 from SBB.AutoCorr.AutoCorr_helper                   import binV2_to_A2, SII_dc_of_t_to_spectrum, compute_SII_sym_and_antisym
-from SBB.Numpy_extra.numpy_extra                    import build_array_of_objects
+from SBB.Numpy_extra.numpy_extra                    import find_nearest_A_to_a,build_array_of_objects
 from SBB.Data_analysis.fit                          import polyfit_above_th
+from SBB.Microwave.Microwave                        import dBm_to_V
+from SBB.Phys.Tunnel_Junction                       import V_th
 
-from Routines_SII import ROUTINE_AVG_GAIN
+# Local
+from Routines_SII   import ROUTINE_AVG_GAIN
+from Quadratures    import gen_fmins_fmaxs,Cmpt_cumulants,Cmpt_std_cumulants,C_to_n,C4_correction
+from Methods        import build_imin_imax
+from Quadratures    import gen_fmins_fmaxs,Add_Vac_to_Cdc
 
 class dn2_photoexcited_info(Info):
     """
@@ -377,3 +383,58 @@ class dn2_photoexcited_exp(dn2_photoexcited_info,Cross_Patern_Lagging_computatio
         'G_avg'         : self.G_avg
         }
         return data
+    
+def Traitment_std_moments_to_ns(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=True,only_p=True):
+    if fast :
+        std_m_dc = _np.nanmean(std_m_dc,axis=0)[None,...]
+        std_m_ac = _np.nanmean(std_m_ac,axis=0)[None,...]
+
+    if only_p: # fix for when I choose the wronf kernel_conf
+        if std_m_ac.shape[1] == 2 :
+            std_m_ac = std_m_ac[:,0,...] # only p
+
+    to_rms = 1./_np.sqrt(2) 
+    
+    Iac = alpha*dBm_to_V(Vac_dBm,R)/R
+
+    If = V_th(F/2)/R # Courant correspondant à une certaine fréquence .. 
+    _,ref_idx = find_nearest_A_to_a(If,Ipol)
+
+    f_mins,f_maxs = gen_fmins_fmaxs(Labels)
+
+    Cdc      = Cmpt_cumulants(std_m_dc)         # Cumulants
+    Cdc      = _np.nanmean(Cdc,axis=2)                   # Symmetrize
+
+    Cac      = Cmpt_cumulants(std_m_ac)         # Cumulants
+    
+
+    C4dc_init = Cdc[...,4].copy()
+    C4ac_init = Cac[...,4].copy()
+    
+    # Correction is done on the total noise (not sample noise)
+    C4dc_corr,C4ac_corr = C4_correction(Cdc,Cac,fuse_last_two_axis=True)
+
+    Cdc[...,4]  = C4dc_corr
+    Cac[...,4]  = C4ac_corr
+
+    # From here always work on averaged statistics
+    Cdc = _np.nanmean(Cdc,axis=0)
+    Cac = _np.nanmean(Cac,axis=0)
+    C4dc_init = _np.nanmean(C4dc_init,axis=0)
+    C4ac_init = _np.nanmean(C4ac_init,axis=0)
+   
+    # Cumulants sample
+    Cdc = (Cdc[...,1,:,:]-Cdc[...,0,:,:]) 
+    Cac = (Cac[...,1,:,:]-Cac[...,0,:,:]) 
+    C4dc_init = C4dc_init[...,1,:] - C4dc_init[...,0,:] 
+    C4ac_init = C4ac_init[...,1,:] - C4ac_init[...,0,:] 
+    
+    # Adding measured vacuum to Cdc
+    Cdc,Pdc = Add_Vac_to_Cdc(Ipol,Cdc,f_maxs,R=R,Te=Te,fmax=10000000000.0, imax=2.1e-06,epsilon=0.001)
+    
+    # Adding Cdc(Vdc=6GHz) to Cac
+    Cac[...,2] = Cac[...,2] + Cdc[...,ref_idx:ref_idx+1,2]
+    
+    nsdc  = C_to_n(Cdc)
+    ns_ac = C_to_n(Cac)
+    return Cdc,C4dc_init,Pdc,nsdc,Iac,Cac,C4ac_init,ns_ac,f_mins,f_maxs
