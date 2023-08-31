@@ -294,10 +294,9 @@ def Temps_in_Time_scope(Temps,ax=None):
     ax2.set_xlabel('T[mK]')
     return ax
     
-def dSIIacx_Vs_f_scope(iac,freq,dSIIx,iac_slice,f_slice,idc,F,R,Te,alpha,ax=None):
+def dSIIacx_Vs_f_scope(iac,freq,dSIIx,iac_slice,f_slice,idc,F,R,Te,ax=None):
     omega  = 2*pi*freq
     nu     = C.e*idc*R/C.hbar
-    iac    = iac*alpha
     nuac   = C.e*iac*R/C.hbar         
     Omega  = F*2*pi
     SII_th = Spa_of_f(omega[None,:],nu,nuac[:,None],Omega,Te,R)
@@ -326,11 +325,10 @@ def dSIIacx_Vs_f_scope(iac,freq,dSIIx,iac_slice,f_slice,idc,F,R,Te,alpha,ax=None
             ax.lines[i].set_data(freq*1e-9,sii)
     return ax 
 
-def dSIIacx_Vs_Iac_scope(iac,freq,dSIIx,iac_slice,f_slice,idc,F,R,Te,alpha,ax=None):
+def dSIIacx_Vs_Iac_scope(iac,freq,dSIIx,iac_slice,f_slice,idc,F,R,Te,ax=None):
     
     omega  = 2*pi*freq
     nu     = C.e*idc*R/C.hbar
-    iac    = iac*alpha
     nuac   = C.e*iac*R/C.hbar         
     Omega  = F*2*pi
     SII_th = Spa_of_f(omega[None,:],nu,nuac[:,None],Omega,Te,R)
