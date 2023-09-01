@@ -403,7 +403,7 @@ def Traitment_std_moments_to_ns(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labe
     f_mins,f_maxs = gen_fmins_fmaxs(Labels)
 
     Cdc      = Cmpt_cumulants(std_m_dc)         # Cumulants
-    Cdc      = _np.nanmean(Cdc,axis=2)                   # Symmetrize
+    Cdc      = _np.nanmean(Cdc,axis=2)          # Symmetrize
 
     Cac      = Cmpt_cumulants(std_m_ac)         # Cumulants
     
@@ -437,4 +437,4 @@ def Traitment_std_moments_to_ns(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labe
     
     nsdc  = C_to_n(Cdc)
     ns_ac = C_to_n(Cac)
-    return Cdc,C4dc_init,Pdc,nsdc,Iac,Cac,C4ac_init,ns_ac,f_mins,f_maxs
+    return Cdc,C4dc_init,Pdc,nsdc,Iac,Cac,C4ac_init,ns_ac,f_mins,f_maxs,ref_idx
