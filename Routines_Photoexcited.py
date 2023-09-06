@@ -402,6 +402,12 @@ def Std_moments_to_Cs_NO_CORR(std_m_dc,std_m_ac,fast=True,only_p=True):
     
     return Cdc,Cac
 
+def get_abscisses(Vac_dBm,alpha,R,F,Labels):
+    Iac = alpha*dBm_to_V(Vac_dBm,R)/R/_np.sqrt(2)    
+    f_mins,f_maxs = gen_fmins_fmaxs(Labels)
+    return Iac,f_mins,f_maxs
+
+
 def Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=True,only_p=True):
     if fast :
         std_m_dc = _np.nanmean(std_m_dc,axis=0)[None,...]
@@ -410,13 +416,11 @@ def Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=Tr
     if only_p: # fix for when I choose the wronf kernel_conf
         std_m_ac = std_m_ac[:,0,...] # only p
         
-    Iac = alpha*dBm_to_V(Vac_dBm,R)/R/_np.sqrt(2)
+    Iac,f_mins,f_maxs = get_abscisses(Vac_dBm,alpha,R,F,Labels)
     
     If = V_th(F/2)/R # Courant correspondant à une certaine fréquence .. 
     _,ref_idx = find_nearest_A_to_a(If,Ipol)
     
-    f_mins,f_maxs = gen_fmins_fmaxs(Labels)
-
     Cdc      = Cmpt_cumulants(std_m_dc)         # Cumulants
     Cdc      = _np.nanmean(Cdc,axis=2)          # Symmetrize
     Cac      = Cmpt_cumulants(std_m_ac)         # Cumulants
