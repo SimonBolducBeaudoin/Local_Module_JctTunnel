@@ -217,7 +217,7 @@ def C4_correction(Cdc,Cac,fuse_last_two_axis=True,show_fit=False):
     if fuse_last_two_axis : #restoring shapes
         Cdc = Cdc.reshape(dc_shape)
         Cac = Cac.reshape(ac_shape)
-    return C4dc,C4ac
+    return C4dc,C4ac,K
     
 def StdC4_correction(Cdc,Cac,fuse_last_two_axis=True,show_fit=False):
     """
