@@ -383,36 +383,49 @@ class dn2_photoexcited_exp(dn2_photoexcited_info,Cross_Patern_Lagging_computatio
         'G_avg'         : self.G_avg
         }
         return data
-    
-def Traitment_std_moments_to_ns(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=True,only_p=True):
+
+def Std_moments_to_Cs_NO_CORR(std_m_dc,std_m_ac,fast=True,only_p=True):
     if fast :
         std_m_dc = _np.nanmean(std_m_dc,axis=0)[None,...]
         std_m_ac = _np.nanmean(std_m_ac,axis=0)[None,...]
 
     if only_p: # fix for when I choose the wronf kernel_conf
-        if std_m_ac.shape[1] == 2 :
-            std_m_ac = std_m_ac[:,0,...] # only p
-
-    to_rms = 1./_np.sqrt(2) 
+        std_m_ac = std_m_ac[:,0,...] # only p
+        
+    Cdc      = Cmpt_cumulants(std_m_dc)         # Cumulants
+    Cdc      = _np.nanmean(Cdc,axis=2)          # Symmetrize
+    Cac      = Cmpt_cumulants(std_m_ac)         # Cumulants
     
-    Iac = alpha*dBm_to_V(Vac_dBm,R)/R
+    # From here always work on averaged statistics
+    Cdc = _np.nanmean(Cdc,axis=0)
+    Cac = _np.nanmean(Cac,axis=0)
+    
+    return Cdc,Cac
 
+def Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=True,only_p=True):
+    if fast :
+        std_m_dc = _np.nanmean(std_m_dc,axis=0)[None,...]
+        std_m_ac = _np.nanmean(std_m_ac,axis=0)[None,...]
+
+    if only_p: # fix for when I choose the wronf kernel_conf
+        std_m_ac = std_m_ac[:,0,...] # only p
+        
+    Iac = alpha*dBm_to_V(Vac_dBm,R)/R/_np.sqrt(2)
+    
     If = V_th(F/2)/R # Courant correspondant à une certaine fréquence .. 
     _,ref_idx = find_nearest_A_to_a(If,Ipol)
-
+    
     f_mins,f_maxs = gen_fmins_fmaxs(Labels)
 
     Cdc      = Cmpt_cumulants(std_m_dc)         # Cumulants
     Cdc      = _np.nanmean(Cdc,axis=2)          # Symmetrize
-
     Cac      = Cmpt_cumulants(std_m_ac)         # Cumulants
     
-
     C4dc_init = Cdc[...,4].copy()
     C4ac_init = Cac[...,4].copy()
     
     # Correction is done on the total noise (not sample noise)
-    C4dc_corr,C4ac_corr = C4_correction(Cdc,Cac,fuse_last_two_axis=True)
+    C4dc_corr,C4ac_corr,_ = C4_correction(Cdc,Cac,fuse_last_two_axis=True)
 
     Cdc[...,4]  = C4dc_corr
     Cac[...,4]  = C4ac_corr
@@ -434,6 +447,11 @@ def Traitment_std_moments_to_ns(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labe
     
     # Adding Cdc(Vdc=6GHz) to Cac
     Cac[...,2] = Cac[...,2] + Cdc[...,ref_idx:ref_idx+1,2]
+    
+    return Cdc,C4dc_init,Pdc,Iac,Cac,C4ac_init,f_mins,f_maxs,ref_idx
+    
+def Std_moments_to_ns(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=True,only_p=True):
+    Cdc,C4dc_init,Pdc,Iac,Cac,C4ac_init,f_mins,f_maxs,ref_idx = Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=fast,only_p=only_p)
     
     nsdc  = C_to_n(Cdc)
     ns_ac = C_to_n(Cac)
