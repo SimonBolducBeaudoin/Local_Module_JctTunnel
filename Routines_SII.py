@@ -137,9 +137,12 @@ def ROUTINE_COMBINE_LOAD_2(files) :
     SII_ac   = get_all_with_key(files,'S2_vac',)
     dSII_ac  = [centered_ref_X(sii,axis=-2) for sii in SII_ac]
     
-    ks    = get_all_with_key(files,'ks',)
-    betas    = get_all_with_key(files,'betas',)
-    filters    = get_all_with_key(files,'filters',)
+    ks      = get_all_with_key(files,'ks',)
+    betas   = get_all_with_key(files,'betas',)
+    filters = get_all_with_key(files,'filters',)
+    ks      = [k[None,...] for k in ks ]
+    betas   = [b[None,...] for b in betas ]
+    filters = [f[None,...] for f in filters ]
     
     G_avg    = get_all_with_key(files,'G_avg',)
     data_gz    = get_all_with_key(files,'data_gz',)
