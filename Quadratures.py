@@ -14,10 +14,10 @@ from Methods import build_imin_imax
 
 from SBB.Numpy_extra.numpy_extra import slice_axis
 
-def extract_numbers(input_list):
+def extract_numbers(input_list,separator='&'):
     result = []
     for item in input_list:
-        numbers = item.split('&')
+        numbers = item.split(separator)
         extracted_numbers = []
         for num in numbers:
             try:
@@ -27,8 +27,8 @@ def extract_numbers(input_list):
         result.append(extracted_numbers)
     return result
 
-def gen_fmins_fmaxs(Labels):
-    labels = extract_numbers(Labels)
+def gen_fmins_fmaxs(Labels,separator='&'):
+    labels = extract_numbers(Labels,separator=separator)
     freq_maxs = _np.r_[ [max(L) for L in labels]]*1e9
     freq_mins = _np.r_[ [min(L) for L in labels]]*1e9
     return freq_mins,freq_maxs

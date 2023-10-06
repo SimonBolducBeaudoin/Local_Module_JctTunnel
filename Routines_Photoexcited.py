@@ -402,13 +402,13 @@ def Std_moments_to_Cs_NO_CORR(std_m_dc,std_m_ac,fast=True,only_p=True):
     
     return Cdc,Cac
 
-def get_abscisses(Vac_dBm,alpha,R,F,Labels):
+def get_abscisses(Vac_dBm,alpha,R,F,Labels,separator='&'):
     Iac = alpha*dBm_to_V(Vac_dBm,R)/R/_np.sqrt(2)    
-    f_mins,f_maxs = gen_fmins_fmaxs(Labels)
+    f_mins,f_maxs = gen_fmins_fmaxs(Labels,separator=separator)
     return Iac,f_mins,f_maxs
 
 
-def Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=True,only_p=True):
+def Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=True,only_p=True,separator='&'):
     if fast :
         std_m_dc = _np.nanmean(std_m_dc,axis=0)[None,...]
         std_m_ac = _np.nanmean(std_m_ac,axis=0)[None,...]
@@ -416,7 +416,7 @@ def Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=Tr
     if only_p: # fix for when I choose the wronf kernel_conf
         std_m_ac = std_m_ac[:,0,...] # only p
         
-    Iac,f_mins,f_maxs = get_abscisses(Vac_dBm,alpha,R,F,Labels)
+    Iac,f_mins,f_maxs = get_abscisses(Vac_dBm,alpha,R,F,Labels,separator=separator)
     
     If = V_th(F/2)/R # Courant correspondant à une certaine fréquence .. 
     _,ref_idx = find_nearest_A_to_a(If,Ipol)
@@ -454,8 +454,8 @@ def Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=Tr
     
     return Cdc,C4dc_init,Pdc,Iac,Cac,C4ac_init,f_mins,f_maxs,ref_idx
     
-def Std_moments_to_ns(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=True,only_p=True):
-    Cdc,C4dc_init,Pdc,Iac,Cac,C4ac_init,f_mins,f_maxs,ref_idx = Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=fast,only_p=only_p)
+def Std_moments_to_ns(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=True,only_p=True,separator='&'):
+    Cdc,C4dc_init,Pdc,Iac,Cac,C4ac_init,f_mins,f_maxs,ref_idx = Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=fast,only_p=only_p,separator=separator)
     
     nsdc  = C_to_n(Cdc)
     ns_ac = C_to_n(Cac)
