@@ -12,7 +12,7 @@ from numba import njit,vectorize,float64
 
 
 from SBB.Data_analysis.window import window_after
-from SBB.Math_extra.Math_extra import central_derivative_3points
+from SBB.Math_extra.math import central_derivative_3points
 from SBB.Numpy_extra.numpy_extra import symetrize,find_nearest_A_to_a
 from SBB.Data_analysis.fit import polyfit_multi_between,polyfit_multi_check,lstsq,lstsq_2D
 from SBB.Phys.Tunnel_Junction import Sdc_of_f,Sdc_asym_of_f,Spa_of_f

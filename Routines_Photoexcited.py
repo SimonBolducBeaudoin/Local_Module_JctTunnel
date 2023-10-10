@@ -4,12 +4,12 @@ import numpy as _np
 
 from SBB.Pyhegel_extra.Experiment                   import logger,Info, Cross_Patern_Lagging_computation, Experiment
 from SBB.Pyhegel_extra.Pyhegel_wrappers             import Yoko_wrapper, Guzik_wrapper , PSG_wrapper
-from SBB.Time_quadratures.time_quadratures          import TimeQuad_uint64_t 
-from SBB.Time_quadratures.TimeQuadrature_helper     import gen_Filters, gen_t_abscisse, gen_f_abscisse, moments_correction
+from SBB.Time_quadratures.time_quadratures          import TimeQuad_FFT_uint64_t_int16_t as TimeQuad
+
 from SBB.Histograms.histograms                      import Histogram_uint64_t_double
 from SBB.Histograms.histograms_helper               import compute_moments
-from SBB.AutoCorr.acorrs_otf                        import ACorrUpTo
-from SBB.AutoCorr.AutoCorr_helper                   import binV2_to_A2, SII_dc_of_t_to_spectrum, compute_SII_sym_and_antisym
+from SBB.AutoCorr.aCorrsOTF.acorrs_otf import ACorrUpTo
+#from SBB.AutoCorr.AutoCorr_helper                   import binV2_to_A2, SII_dc_of_t_to_spectrum, compute_SII_sym_and_antisym
 from SBB.Numpy_extra.numpy_extra                    import find_nearest_A_to_a,build_array_of_objects
 from SBB.Data_analysis.fit                          import polyfit_above_th
 from SBB.Microwave.Microwave                        import dBm_to_V
@@ -201,7 +201,7 @@ class dn2_photoexcited_exp(dn2_photoexcited_info,Cross_Patern_Lagging_computatio
     def _init_TimeQuad(self):
         # Use R_jct if the gain has been premeasurement or R_tl if g = 1.0 i.e. no calibration
         g               = _np.ones((self.l_hc,),dtype=complex) # dummy fillter for initialization 
-        self._X         = TimeQuad_uint64_t(self.meta['R_jct'],self.meta['dt']*1.e9,self.l_data,self.kernel_conf,self.Filters,g,self.meta['alpha'],self.l_fft,self.n_threads)
+        self._X         = TimeQuad(self.meta['R_jct'],self.meta['dt']*1.e9,self.l_data,self.kernel_conf,self.Filters,g,self.meta['alpha'],self.l_fft,self.n_threads)
         self.betas      = self._X.betas()
         self.filters    = self._X.filters()
         self.ks         = self._X.ks()
