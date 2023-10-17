@@ -5,11 +5,11 @@ import numpy as _np
 from SBB.Pyhegel_extra.Experiment                   import logger,Info, Cross_Patern_Lagging_computation, Experiment
 from SBB.Pyhegel_extra.Pyhegel_wrappers             import Yoko_wrapper, Guzik_wrapper , PSG_wrapper
 from SBB.Time_quadratures.time_quadratures          import TimeQuad_FFT_uint64_t_int16_t as TimeQuad
+from SBB.Time_quadratures.kernels                   import make_kernels
 
 from SBB.Histograms.histograms                      import Histogram_uint64_t_double
 from SBB.Histograms.histograms_helper               import compute_moments
-from SBB.AutoCorr.aCorrsOTF.acorrs_otf import ACorrUpTo
-#from SBB.AutoCorr.AutoCorr_helper                   import binV2_to_A2, SII_dc_of_t_to_spectrum, compute_SII_sym_and_antisym
+from SBB.AutoCorr.aCorrsOTF.acorrs_otf              import ACorrUpTo
 from SBB.Numpy_extra.numpy_extra                    import find_nearest_A_to_a,build_array_of_objects
 from SBB.Data_analysis.fit                          import polyfit_above_th
 from SBB.Microwave.Microwave                        import dBm_to_V
@@ -17,9 +17,8 @@ from SBB.Phys.Tunnel_Junction                       import V_th
 
 # Local
 from Routines_SII   import ROUTINE_AVG_GAIN
-from Quadratures    import gen_fmins_fmaxs,Cmpt_cumulants,Cmpt_std_cumulants,C_to_n,C4_correction
+from Quadratures    import gen_fmins_fmaxs,Cmpt_cumulants,Cmpt_std_cumulants,C_to_n,C4_correction,Add_Vac_to_Cdc
 from Methods        import build_imin_imax
-from Quadratures    import gen_fmins_fmaxs,Add_Vac_to_Cdc
 
 class dn2_photoexcited_info(Info):
     """
@@ -41,11 +40,11 @@ class dn2_photoexcited_info(Info):
             no_ref      : no_referencing is done
     """
     @staticmethod
-    def gen_meta_info(R_jct,R_tot,n_threads,l_data,dt,V_per_bin,l_kernel,F,alpha,kernel_conf,filter_info,nb_of_bin,max,l_fft,ref_idxs,gain_fit_params,yo_wait,moments_order):
+    def gen_meta_info(R_jct,R_tot,n_threads,l_data,dt,V_per_bin,l_kernel,F,t,alpha,betas,betas_info,Thetas,ks,Labels,nb_of_bin,max,l_fft,ref_idxs,gain_fit_params,yo_wait,moments_order):
         return {
             'R_jct':R_jct,'R_tot':R_tot,'n_threads':n_threads,
             'l_data':l_data,'dt':dt,'V_per_bin':V_per_bin,'l_kernel':l_kernel,'F':F,
-            'alpha':alpha,'kernel_conf':kernel_conf,'filter_info':filter_info,
+            't':t,'alpha':alpha,'betas':betas,'betas_info':betas_info,'Thetas':Thetas,'ks':ks,'Labels':Labels,
             'nb_of_bin':nb_of_bin,'max':max,'l_fft':l_fft, 'ref_idxs':ref_idxs,
             'gain_fit_params':gain_fit_params,'yo_wait':yo_wait,
             'moments_order':moments_order
@@ -127,18 +126,19 @@ class dn2_photoexcited_info(Info):
         self.l_hc          = self.l_kernel/2 + 1
         self.l_kernel_sym  = self.l_hc                # Diviser par deux car on va symétrisé
         self.l_fft         = int(self.meta['l_fft'])
-        self.kernel_conf   = int(self.meta['kernel_conf'])
         self.nb_of_bin     = int(self.meta['nb_of_bin'])
         
         ## important variables from filters
-        self.n_quads       = 2 if self.kernel_conf == 1 else 1         # Parcequ'on veut mesurer q et p 
-        self.n_filters     = self.meta['filter_info']['length']   # alias
-        self.labels        = self.meta['filter_info']['labels']   # alias
-        self.Filters       = gen_Filters(self.l_kernel,self.meta['dt']*1.e9,self.meta['filter_info'])
-    
-        self.is_dc_max_set    = False
-        self.is_ac_max_set    = False
-    
+        self.t             = self.meta['t']
+        self.alpha         = self.meta['alpha']
+        self.betas         = self.meta['betas']
+        self.Thetas         = self.meta['Thetas']
+        
+        self.make_kernels_d = dict(t=self.t,betas=self.betas,g=None,window=True,alpha=self.alpha,Z=self.meta['R_jct'],Theta=self.Thetas,half_norm=True)
+        
+        self.n_quads       = self.meta['ks'].shape[0]
+        self.n_filters     = self.meta['ks'].shape[1]
+        
 class dn2_photoexcited_exp(dn2_photoexcited_info,Cross_Patern_Lagging_computation):
     """
     What it does :
@@ -199,16 +199,15 @@ class dn2_photoexcited_exp(dn2_photoexcited_info,Cross_Patern_Lagging_computatio
         self.SII_vdc          = _np.full((n+1,l_vdc,self.l_kernel_sym),_np.nan) 
         self.SII_vac          = _np.full((n+1,l_vac,self.l_kernel_sym),_np.nan)
     def _init_TimeQuad(self):
-        # Use R_jct if the gain has been premeasurement or R_tl if g = 1.0 i.e. no calibration
         g               = _np.ones((self.l_hc,),dtype=complex) # dummy fillter for initialization 
-        self._X         = TimeQuad(self.meta['R_jct'],self.meta['dt']*1.e9,self.l_data,self.kernel_conf,self.Filters,g,self.meta['alpha'],self.l_fft,self.n_threads)
-        self.betas      = self._X.betas()
-        self.filters    = self._X.filters()
-        self.ks         = self._X.ks()
-        self.quads      = self._X.quads()[:,:,:]
+        self.make_kernels_d['g'] = g
+        self.make_kernels_d['half_norm'] = False
+        self.ks_default , _ = make_kernels(**self.make_kernels_d)
+        self.make_kernels_d['half_norm'] = True 
         self._data_gz   = self._gz.get() # int16
-        
-        self._X.execute( self._data_gz ) # force the initialization of memory
+        self._X         = TimeQuad(self.ks_default,self._data_gz, self.meta['dt'],self.l_fft,self.n_threads)
+        self.quads      = self._X.quads()[:,:,:]
+        self._X.execute( self.ks_default, self._data_gz ) # force the initialization of memory
     def _init_Histograms(self):
         n               = self._n_measures
         l_Vdc           = len(self._conditions_core_loop_raw[0])
@@ -305,8 +304,11 @@ class dn2_photoexcited_exp(dn2_photoexcited_info,Cross_Patern_Lagging_computatio
         self._psg.set_ampl(vac_next)                                    # First point setting psg first
         self._yoko.set_and_wait(vdc_next,Waittime=self.yo_wait)
         
+        #updating the gain
         g = self.compute_g_bin_v_per_v(self.G_avg)
-        self._X.set_g(g)
+        self.make_kernels_d['g'] = g
+        self.ks , self.hn = make_kernels(**self.make_kernels_d)
+       
         self._reset_Hs()
     def _loop_core(self,index_tuple,condition_tuple,index_it,condition_it,n):
         """
@@ -324,23 +326,12 @@ class dn2_photoexcited_exp(dn2_photoexcited_info,Cross_Patern_Lagging_computatio
             self._psg.set_ampl(vac_next)                                  
             self._yoko.set(vdc_next)                                      
         self._log.event(0)
-        
-        self._X.execute(self._data_gz)
+        self._X.execute( self.ks, self._data_gz ) 
         if index_it.current_dim == 0 :     
-            # if not(self.is_dc_max_set): # setting custom max for each kernels
-                # for i in range(self.n_filters):
-                    # self.Hs_vdc[i,j].max = self.quads[0,i,:].max()*1.05
-                # self.is_dc_max_set = True
             for i in range(self.n_filters):
-                self.Hs_vdc[i,j].accumulate( self.quads[0,i,:] )
-            
+                self.Hs_vdc[i,j].accumulate( self.quads[0,i,:] ) 
             self.SII_vdc[n+1,j]= self.get_SII(self._data_gz)
         else: # index_it.current_dim == 1 :
-            # if not(self.is_ac_max_set): # setting custom max for each kernels
-                # for q in range(self.n_quads):
-                    # for i in range(self.n_filters):
-                        # self.Hs_vac[q,i,k].max = self.quads[q,i].max()*1.05
-                # self.is_ac_max_set = True
             for q in range(self.n_quads):
                 for i in range(self.n_filters):
                     self.Hs_vac[q,i,k].accumulate( self.quads[q,i] )
@@ -350,7 +341,7 @@ class dn2_photoexcited_exp(dn2_photoexcited_info,Cross_Patern_Lagging_computatio
     def _last_loop_core_iteration(self,n):
         self._data_gz   = self._gz.get() # int16 
         self._log.event(0)
-        self._X.execute(self._data_gz)
+        self._X.execute( self.ks, self._data_gz ) 
         for q in range(self.n_quads):
             for i in range(self.n_filters):
                 self.Hs_vac[q,i,-1].accumulate( self.quads[q,i] )
@@ -359,16 +350,15 @@ class dn2_photoexcited_exp(dn2_photoexcited_info,Cross_Patern_Lagging_computatio
         self.G_avg = ROUTINE_AVG_GAIN(self._conditions_core_loop_raw[0],self.SII_vdc,self.meta['R_tot'],self.meta['V_per_bin'],self.l_kernel,self.gain_fit_params,windowing=True,i=65)
         ##############################################################################################
         # Compute moments and reset histograms #######################################################
-        self.moments_dc[n+1,...] = compute_moments(self.Hs_vdc,self._H_x,order = self.moments_order,Cxs=self._X.half_norms())
-        self.moments_ac[n+1,...] = compute_moments(self.Hs_vac,self._H_x,order = self.moments_order,Cxs=self._X.half_norms())
+        self.moments_dc[n+1,...] = compute_moments(self.Hs_vdc,self._H_x,order = self.moments_order,Cxs=self.hn)
+        self.moments_ac[n+1,...] = compute_moments(self.Hs_vac,self._H_x,order = self.moments_order,Cxs=self.hn)
         ##############################################################################################
         self._log.event(1)
         super(dn2_photoexcited_exp,self)._loop_core(tuple(),tuple())
         
     def _build_data(self):
         data = {\
-        'filters'       : self.filters,
-        'ks'            : self.ks ,
+        'ks'            : self.ks_default , # with gain = 1.
         'quads'         : self.quads[...,:1<<20], # first millon points of the last quadrature calculation
         'betas'         : self.betas ,
         'data_gz'       : self._data_gz[:1<<20], # first millon points of the last measurement
@@ -389,7 +379,8 @@ def Std_moments_to_Cs_NO_CORR(std_m_dc,std_m_ac,fast=True,only_p=True):
         std_m_dc = _np.nanmean(std_m_dc,axis=0)[None,...]
         std_m_ac = _np.nanmean(std_m_ac,axis=0)[None,...]
 
-    if only_p: # fix for when I choose the wronf kernel_conf
+    # Not sure what to do here
+    if only_p: # fix for when I choose the wrong kernel_conf
         std_m_ac = std_m_ac[:,0,...] # only p
         
     Cdc      = Cmpt_cumulants(std_m_dc)         # Cumulants
@@ -402,18 +393,19 @@ def Std_moments_to_Cs_NO_CORR(std_m_dc,std_m_ac,fast=True,only_p=True):
     
     return Cdc,Cac
 
-def get_abscisses(Vac_dBm,alpha,R,F,Labels,separator='&'):
+def get_abscisses(Vac_dBm,alpha,R,F,Labels,separator=['&']):
     Iac = alpha*dBm_to_V(Vac_dBm,R)/R/_np.sqrt(2)    
     f_mins,f_maxs = gen_fmins_fmaxs(Labels,separator=separator)
     return Iac,f_mins,f_maxs
 
 
-def Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=True,only_p=True,separator='&'):
+def Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=True,only_p=True,separator=['&']):
     if fast :
         std_m_dc = _np.nanmean(std_m_dc,axis=0)[None,...]
         std_m_ac = _np.nanmean(std_m_ac,axis=0)[None,...]
-
-    if only_p: # fix for when I choose the wronf kernel_conf
+    
+    # Not sure what to do here
+    if only_p: # fix for when I choose the wrong  
         std_m_ac = std_m_ac[:,0,...] # only p
         
     Iac,f_mins,f_maxs = get_abscisses(Vac_dBm,alpha,R,F,Labels,separator=separator)
@@ -433,18 +425,14 @@ def Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=Tr
 
     Cdc[...,4]  = C4dc_corr
     Cac[...,4]  = C4ac_corr
-
-    # From here always work on averaged statistics
-    Cdc = _np.nanmean(Cdc,axis=0)
-    Cac = _np.nanmean(Cac,axis=0)
-    C4dc_init = _np.nanmean(C4dc_init,axis=0)
-    C4ac_init = _np.nanmean(C4ac_init,axis=0)
-   
+    
     # Cumulants sample
     Cdc = (Cdc[...,1,:,:]-Cdc[...,0,:,:]) 
-    Cac = (Cac[...,1,:,:]-Cac[...,0,:,:]) 
+    Cac = (Cac[...,1,:,:]-Cac[...,0,:,:])
+    
     C4dc_init = C4dc_init[...,1,:] - C4dc_init[...,0,:] 
     C4ac_init = C4ac_init[...,1,:] - C4ac_init[...,0,:] 
+    
     
     # Adding measured vacuum to Cdc
     Cdc,Pdc = Add_Vac_to_Cdc(Ipol,Cdc,f_maxs,R=R,Te=Te,fmax=10000000000.0, imax=2.1e-06,epsilon=0.001)
@@ -454,9 +442,26 @@ def Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=Tr
     
     return Cdc,C4dc_init,Pdc,Iac,Cac,C4ac_init,f_mins,f_maxs,ref_idx
     
-def Std_moments_to_ns(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=True,only_p=True,separator='&'):
+def Std_moments_to_ns(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=True,only_p=True,separator=['&']):
     Cdc,C4dc_init,Pdc,Iac,Cac,C4ac_init,f_mins,f_maxs,ref_idx = Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=fast,only_p=only_p,separator=separator)
     
-    nsdc  = C_to_n(Cdc)
-    ns_ac = C_to_n(Cac)
-    return Cdc,C4dc_init,Pdc,nsdc,Iac,Cac,C4ac_init,ns_ac,f_mins,f_maxs,ref_idx
+    nsdc = C_to_n(Cdc)
+    nsac = C_to_n(Cac)
+    # from here always work on averarage over experiements
+    Cdc_std = _np.nanstd(Cdc,axis=0)
+    Cac_std = _np.nanstd(Cac,axis=0)
+    StdC4ac = Cac[...,4]/Cac[...,2]**2
+    StdC4ac_std = _np.nanstd(StdC4ac,axis=0)
+    StdC4ac = _np.nanmean(StdC4ac,axis=0)
+    Cdc = _np.nanmean(Cdc,axis=0)
+    Cac = _np.nanmean(Cac,axis=0)
+    C4dc_init = _np.nanmean(C4dc_init,axis=0)
+    C4ac_init = _np.nanmean(C4ac_init,axis=0)
+    nsdc_std = _np.nanstd(nsdc,axis=0)
+    nsac_std = _np.nanstd(nsac,axis=0)
+    nsdc = _np.nanmean(nsdc,axis=0)
+    nsac = _np.nanmean(nsac,axis=0)
+    
+    Pdc = _np.nanmean(Pdc,axis=0)
+    
+    return Cdc,Cdc_std,C4dc_init,Pdc,nsdc,nsdc_std,Iac,Cac,Cac_std,C4ac_init,StdC4ac,StdC4ac_std,nsac,nsac_std,f_mins,f_maxs,ref_idx
