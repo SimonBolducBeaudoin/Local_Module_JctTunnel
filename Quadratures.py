@@ -14,10 +14,27 @@ from Methods import build_imin_imax
 
 from SBB.Numpy_extra.numpy_extra import slice_axis
 
-def extract_numbers(input_list,separator='&'):
+# def extract_numbers(input_list,separator='&'):
+    # result = []
+    # for item in input_list:
+        # numbers = item.split(separator)
+        # extracted_numbers = []
+        # for num in numbers:
+            # try:
+                # extracted_numbers.append(float(num))
+            # except ValueError:
+                # pass  # Ignore non-numeric values
+        # result.append(extracted_numbers)
+    # return result
+    
+def extract_numbers(input_list, separator=['&', '-']):
     result = []
     for item in input_list:
-        numbers = item.split(separator)
+        found_separator = None
+        for sep in separator:
+            if sep in item:
+                found_separator = sep
+        numbers = item.split(found_separator)
         extracted_numbers = []
         for num in numbers:
             try:
@@ -27,7 +44,8 @@ def extract_numbers(input_list,separator='&'):
         result.append(extracted_numbers)
     return result
 
-def gen_fmins_fmaxs(Labels,separator='&'):
+
+def gen_fmins_fmaxs(Labels,separator=['&']):
     labels = extract_numbers(Labels,separator=separator)
     freq_maxs = _np.r_[ [max(L) for L in labels]]*1e9
     freq_mins = _np.r_[ [min(L) for L in labels]]*1e9
@@ -98,6 +116,7 @@ def C_to_n(C):
     return ns
 
 def Add_Vac_to_Cdc(Ipol,Cdc,f_maxs,R,Te,fmax=10000000000.0, imax=2.1e-06,epsilon=0.001):
+
     imin,imax = build_imin_imax(f_maxs,Cdc[...,2].shape[:-1], R=R,T=Te,fmax=fmax, imax=imax,epsilon=epsilon)
     Pdc = polyfit_multi_between(Ipol,Cdc[...,2],imin,imax)
     Vacuum = - Pdc[...,1]
