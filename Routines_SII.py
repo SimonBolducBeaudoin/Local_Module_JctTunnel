@@ -159,9 +159,7 @@ def ROUTINE_COMBINE_LOAD_3(files) :
     """
         Returns 
         Vdc,Vac, SII, dSII
-    """
-    Labels  = get_all_with_key(files,'_meta_info',EVAL="[()]['filter_info']['labels']")
-    
+    """    
     R_jct      = get_all_with_key(files,'_meta_info',EVAL="[()]['R_jct']")
     F          = get_all_with_key(files,'_meta_info',EVAL="[()]['F']")
     filter_info = get_all_with_key(files,'_meta_info',EVAL="[()]['filter_info']")
@@ -170,6 +168,60 @@ def ROUTINE_COMBINE_LOAD_3(files) :
     l_kernel = get_all_with_key(files,'_meta_info',EVAL="[()]['l_kernel']")
     
     return R_jct,F,filter_info,V_per_bin,gain_fit_params,l_kernel
+def ROUTINE_COMBINE_LOAD_4(files) :
+    """
+        Returns 
+        Vdc,Vac, SII, dSII
+    """
+    Vdc   = get_all_with_key(files,'Vdc',)
+    Vac   = get_all_with_key(files,'Vac',)
+            
+    Labels = []
+    for file in files :
+        data = _np.load(file,allow_pickle=True)
+        s_data_key = "data[key]" 
+        try : 
+            labels = data['_meta_info'][()]['Labels']
+        except KeyError :
+            labels = data['_meta_info'][()]['filter_info']['labels']
+        Labels.append( labels )
+    Labels = _np.concatenate( [Labels], axis=0) # A concatenated array of all exp
+    
+    SII_dc   = get_all_with_key(files,'S2_vdc',)
+    dSII_dc  = [centered_ref_X(sii,axis=-2) for sii in SII_dc]
+    SII_ac   = get_all_with_key(files,'S2_vac',)
+    dSII_ac  = [centered_ref_X(sii,axis=-2) for sii in SII_ac]
+    
+    ks      = get_all_with_key(files,'ks',)
+    betas   = get_all_with_key(files,'betas',)
+    #filters = get_all_with_key(files,'filters',)
+    ks      = [k[None,...] for k in ks ]
+    betas   = [b[None,...] for b in betas ]
+    
+    G_avg    = get_all_with_key(files,'G_avg',)
+    data_gz    = get_all_with_key(files,'data_gz',)
+    quads    = get_all_with_key(files,'quads',)
+    hs_vdc    = get_all_with_key(files,'hs_vdc',)
+    hs_vac    = get_all_with_key(files,'hs_vac',)
+    
+    moments_dc    = get_all_with_key(files,'moments_dc',)
+    moments_ac    = get_all_with_key(files,'moments_ac',)
+    
+    return Vdc,Vac,Labels,SII_dc, dSII_dc,SII_ac, dSII_ac,ks,betas,G_avg,data_gz,quads,hs_vdc,hs_vac,moments_dc,moments_ac
+    
+def ROUTINE_COMBINE_LOAD_5(files) :
+    """
+        Returns 
+        Vdc,Vac, SII, dSII
+    """
+    R_jct      = get_all_with_key(files,'_meta_info',EVAL="[()]['R_jct']")
+    F          = get_all_with_key(files,'_meta_info',EVAL="[()]['F']")
+    #betas_info = get_all_with_key(files,'_meta_info',EVAL="[()]['betas_info']")
+    V_per_bin  = get_all_with_key(files,'_meta_info',EVAL="[()]['V_per_bin']")
+    gain_fit_params = get_all_with_key(files,'_meta_info',EVAL="[()]['gain_fit_params']")
+    l_kernel = get_all_with_key(files,'_meta_info',EVAL="[()]['l_kernel']")
+    
+    return R_jct,F,V_per_bin,gain_fit_params,l_kernel
     
 def ROUTINE_FIT_T (ipol,freq,dSIIx,i_slice,f_slice,Rjct=70.0,T_xpctd=0.055,tol=1e-15):
     """
