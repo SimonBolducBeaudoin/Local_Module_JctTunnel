@@ -290,7 +290,7 @@ def Temps_in_Time_scope(Temps,ax=None):
     ax.set_ylabel('T[mK]')
     ax.set_xlabel('Repetitions[~]')
     ax2.clear()
-    ax2.hist(Temps)
+    ax2.hist(Temps,20)
     ax2.set_xlabel('T[mK]')
     return ax
     
