@@ -28,7 +28,7 @@ def plot_betas(freq,betas,Labels):
     for beta , l,c_idx in zip (betas,Labels,color_idx[:]) :
         ax.plot(freq*1e-9,abs(beta)*1e-9,label=l,color=_cm.cool(c_idx))
     ax.set_xlabel(r'$f$[GHz]')
-    ax.set_ylabel(r'$\beta(f)$[~]')
+    ax.set_ylabel(r'$\beta(f)$[Hz$^{-1/2}$]')
     ax.set_xlim(0,12)
     fig.tight_layout()
     #fig.legend(loc='lower right',ncol=1, bbox_to_anchor=(0.965, 0.525),title = 'Mode',fontsize=12)
