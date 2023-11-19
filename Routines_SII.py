@@ -200,7 +200,10 @@ def ROUTINE_COMBINE_LOAD_4(files) :
     
     G_avg    = get_all_with_key(files,'G_avg',)
     data_gz    = get_all_with_key(files,'data_gz',)
-    quads    = get_all_with_key(files,'quads',)
+    try :
+        quads = get_all_with_key(files,'quads',)
+    except KeyError :
+        quads = None
     hs_vdc    = get_all_with_key(files,'hs_vdc',)
     hs_vac    = get_all_with_key(files,'hs_vac',)
     
