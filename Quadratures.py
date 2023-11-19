@@ -45,8 +45,9 @@ def extract_numbers(input_list, separator=['&', '-']):
     return result
 
 
-def gen_fmins_fmaxs(Labels,separator=['&']):
-    labels = extract_numbers(Labels,separator=separator)
+def gen_fmins_fmaxs(Labels,separator=['&'],prefix=None):
+    LABELS = _np.char.lstrip(Labels, prefix)
+    labels = extract_numbers(LABELS,separator=separator)
     freq_maxs = _np.r_[ [max(L) for L in labels]]*1e9
     freq_mins = _np.r_[ [min(L) for L in labels]]*1e9
     return freq_mins,freq_maxs
