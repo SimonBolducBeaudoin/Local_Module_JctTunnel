@@ -4,7 +4,7 @@ import numpy as np
 
 from SBB.Pyhegel_extra.Experiment                   import logger,Info, Cross_Patern_Lagging_computation, Experiment
 from SBB.Pyhegel_extra.Pyhegel_wrappers             import Yoko_wrapper, Guzik_wrapper , PSG_wrapper
-from SBB.Time_quadratures.time_quadratures          import TimeQuad_FFT_float_to_Hist_uint32_t_int16_t as TimeQuad
+from SBB.Time_quadratures.time_quadratures          import TimeQuad_FFT_double_to_Hist_uint32_t_int16_t as TimeQuad
 from SBB.Time_quadratures.kernels                   import make_kernels
 
 from SBB.Histograms.histograms_helper               import compute_moments
@@ -309,7 +309,7 @@ class dn2_photoexcited_exp(dn2_photoexcited_info,Cross_Patern_Lagging_computatio
         self._log.event(0)
         self.X.reset()
         self.X.execute( self.ks, self.data_gz ) 
-        self.Hs_vac[:,:,-1] = self.X.Histograms()
+        self.Hs_vac[:,:,-1,:] = self.X.Histograms()
         self.SII_vac[n+1,-1]= self.get_SII(self.data_gz) 
         
         self.G_avg = ROUTINE_AVG_GAIN(self._conditions_core_loop_raw[0],self.SII_vdc,self.meta['R_tot'],self.meta['V_per_bin'],self.l_kernel,self.gain_fit_params,windowing=True,i=65)
@@ -479,9 +479,7 @@ def Std_moments_to_ns_2(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,fmins,fmaxs,
     # from here always work on averarage over experiements
     Cdc_std = np.nanstd(Cdc,axis=0)
     Cac_std = np.nanstd(Cac,axis=0)
-    StdC4ac = Cac[...,4]/Cac[...,2]**2
-    StdC4ac_std = np.nanstd(StdC4ac,axis=0)
-    StdC4ac = np.nanmean(StdC4ac,axis=0)
+        
     Cdc = np.nanmean(Cdc,axis=0)
     Cac = np.nanmean(Cac,axis=0)
     C4dc_init = np.nanmean(C4dc_init,axis=0)
@@ -493,4 +491,4 @@ def Std_moments_to_ns_2(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,fmins,fmaxs,
     
     Pdc = np.nanmean(Pdc,axis=0)
     
-    return Cdc,Cdc_std,C4dc_init,Pdc,nsdc,nsdc_std,Iac,Cac,Cac_std,C4ac_init,StdC4ac,StdC4ac_std,nsac,nsac_std,fmins,fmaxs,ref_idx
+    return Cdc,Cdc_std,C4dc_init,Pdc,nsdc,nsdc_std,Iac,Cac,Cac_std,C4ac_init,nsac,nsac_std,fmins,fmaxs,ref_idx

@@ -5,7 +5,7 @@ import numpy as _np
 from matplotlib.pyplot import subplots
 from scipy import constants as _C
 
-from SBB.Phys.Tunnel_Junction           import n_th
+from SBB.Phys.Deprecated           import n_th
 from SBB.Numpy_extra.numpy_extra        import sub_flat,slice_axis,sub_flatten_no_copy
 from SBB.Data_analysis.fit              import lstsq,polyfit_multi_between
 from SBB.Histograms.histograms_helper   import std_moments_to_moments
