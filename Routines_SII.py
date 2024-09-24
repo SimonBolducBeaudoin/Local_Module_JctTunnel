@@ -38,17 +38,17 @@ def ROUTINE_SCOPE_0(Vyoko,Vjct,Vpol,SII,Rpol,V_per_bin,flip_Ipol=False,sym=True,
     Vyoko   = reshape_reorder_swap(Vyoko,axis=-1,sym=sym,ref=ref)
     V_jct = reshape_reorder_swap(V_jct,axis=-1,sym=sym,ref=ref)
     V_pol = reshape_reorder_swap(V_pol,axis=-1,sym=sym,ref=ref)
-    SII_dc   = reshape_reorder_swap(SII_dc,axis=-2,sym=sym,ref=ref)
-    dSII_dc  = reshape_reorder_swap(dSII_dc,axis=-2,sym=sym,ref='first')
+    SII   = reshape_reorder_swap(SII,axis=-2,sym=sym,ref=ref)
+    dSII  = reshape_reorder_swap(dSII,axis=-2,sym=sym,ref='first')
     
     if flip_Ipol :
         Ipol = (-1)*_np.nanmean( Vpol/Rpol, axis = 0 )
     else: 
         Ipol = _np.nanmean( Vpol/Rpol, axis = 0 )
     
-    return Vjct,Ipol,Sii,dSii
+    return Vjct,Ipol,SII,dSII
     
-def ROUTINE_SCOPE_1(Vyoko,SII,Rtot,V_per_bin) :
+def ROUTINE_SCOPE_1(Vyoko,SII,Rtot,V_per_bin,sym=True,ref='interlaced') :
     """
     no dmms   
     """
@@ -56,12 +56,12 @@ def ROUTINE_SCOPE_1(Vyoko,SII,Rtot,V_per_bin) :
     SII   = SII*(V_per_bin)**2 / 50.0**2 ## A**2
     dSII = centered_ref_X(SII,axis=-2)
    
-    Vdc   = reshape_reorder_swap(Vdc,axis=-1,sym=sym,ref=ref)
-    SII_dc   = reshape_reorder_swap(SII_dc,axis=-2,sym=sym,ref=ref)
-    dSII_dc  = reshape_reorder_swap(dSII_dc,axis=-2,sym=sym,ref='first')
+    Vdc   = reshape_reorder_swap(Vyoko,axis=-1,sym=sym,ref=ref)
+    SII   = reshape_reorder_swap(SII,axis=-2,sym=sym,ref=ref)
+    dSII  = reshape_reorder_swap(dSII,axis=-2,sym=sym,ref='first')
     
     Ipol = Vyoko/Rtot
-    return Ipol,Sii,dSii
+    return Ipol,SII,dSII
 
 def ROUTINE_LOAD_0(file,R_pol = 100.0185e3,V_per_bin=0.00021957308303365236,flip_Ipol=False) :
     """
