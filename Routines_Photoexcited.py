@@ -363,7 +363,7 @@ def get_abscisses(Vac_dBm,alpha,R,F,Labels,separator=['&'],prefix=None):
     return Iac,f_mins,f_maxs
 
 
-def Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=True,only_p=True,separator=['&'],prefix=None):
+def Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=True,only_p=True,separator=['&'],prefix=None,no_correction=False):
     if fast :
         std_m_dc = np.nanmean(std_m_dc,axis=0)[None,...]
         std_m_ac = np.nanmean(std_m_ac,axis=0)[None,...]
@@ -383,11 +383,12 @@ def Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=Tr
     C4dc_init = Cdc[...,4].copy()
     C4ac_init = Cac[...,4].copy()
     
-    # Correction is done on the total noise (not sample noise)
-    C4dc_corr,C4ac_corr,_ = C4_correction(Cdc,Cac,fuse_last_two_axis=True)
+    if not(no_correction):
+        # Correction is done on the total noise (not sample noise)
+        C4dc_corr,C4ac_corr,_ = C4_correction(Cdc,Cac,fuse_last_two_axis=True)
 
-    Cdc[...,4]  = C4dc_corr
-    Cac[...,4]  = C4ac_corr
+        Cdc[...,4]  = C4dc_corr
+        Cac[...,4]  = C4ac_corr
     
     # Cumulants sample
     Cdc = (Cdc[...,1,:,:]-Cdc[...,0,:,:]) 
@@ -405,8 +406,8 @@ def Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=Tr
     
     return Cdc,C4dc_init,Pdc,Iac,Cac,C4ac_init,f_mins,f_maxs,ref_idx
     
-def Std_moments_to_ns(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=True,only_p=True,separator=['&'],prefix=None):
-    Cdc,C4dc_init,Pdc,Iac,Cac,C4ac_init,f_mins,f_maxs,ref_idx = Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=fast,only_p=only_p,separator=separator,prefix=prefix)
+def Std_moments_to_ns(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=True,only_p=True,separator=['&'],prefix=None,no_correction=False):
+    Cdc,C4dc_init,Pdc,Iac,Cac,C4ac_init,f_mins,f_maxs,ref_idx = Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=fast,only_p=only_p,separator=separator,prefix=prefix,no_correction=no_correction )
     
     nsdc = C_to_n(Cdc)
     nsac = C_to_n(Cac)
@@ -429,7 +430,7 @@ def Std_moments_to_ns(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=Tr
     
     return Cdc,Cdc_std,C4dc_init,Pdc,nsdc,nsdc_std,Iac,Cac,Cac_std,C4ac_init,StdC4ac,StdC4ac_std,nsac,nsac_std,f_mins,f_maxs,ref_idx
 
-def Std_moments_to_Cs_2(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,fmaxs,fast=True,only_p=True):
+def Std_moments_to_Cs_2(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,fmaxs,fast=True,only_p=True,no_correction=False):
     if fast :
         std_m_dc = np.nanmean(std_m_dc,axis=0)[None,...]
         std_m_ac = np.nanmean(std_m_ac,axis=0)[None,...]
@@ -449,11 +450,12 @@ def Std_moments_to_Cs_2(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,fmaxs,fast=T
     C4dc_init = Cdc[...,4].copy()
     C4ac_init = Cac[...,4].copy()
     
-    # Correction is done on the total noise (not sample noise)
-    C4dc_corr,C4ac_corr,_ = C4_correction(Cdc,Cac,fuse_last_two_axis=True)
+    if not(no_correction) :
+        # Correction is done on the total noise (not sample noise)
+        C4dc_corr,C4ac_corr,_ = C4_correction(Cdc,Cac,fuse_last_two_axis=True)
 
-    Cdc[...,4]  = C4dc_corr
-    Cac[...,4]  = C4ac_corr
+        Cdc[...,4]  = C4dc_corr
+        Cac[...,4]  = C4ac_corr
     
     # Cumulants sample
     Cdc = (Cdc[...,1,:,:]-Cdc[...,0,:,:]) 
@@ -471,8 +473,8 @@ def Std_moments_to_Cs_2(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,fmaxs,fast=T
     
     return Cdc,C4dc_init,Pdc,Iac,Cac,C4ac_init,ref_idx
  
-def Std_moments_to_ns_2(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,fmins,fmaxs,fast=True,only_p=True): 
-    Cdc,C4dc_init,Pdc,Iac,Cac,C4ac_init,ref_idx = Std_moments_to_Cs_2(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,fmaxs,fast=fast,only_p=only_p)
+def Std_moments_to_ns_2(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,fmins,fmaxs,fast=True,only_p=True,no_correction=False): 
+    Cdc,C4dc_init,Pdc,Iac,Cac,C4ac_init,ref_idx = Std_moments_to_Cs_2(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,fmaxs,fast=fast,only_p=only_p,no_correction=no_correction)
     
     nsdc = C_to_n(Cdc)
     nsac = C_to_n(Cac)
@@ -492,3 +494,5 @@ def Std_moments_to_ns_2(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,fmins,fmaxs,
     Pdc = np.nanmean(Pdc,axis=0)
     
     return Cdc,Cdc_std,C4dc_init,Pdc,nsdc,nsdc_std,Iac,Cac,Cac_std,C4ac_init,nsac,nsac_std,fmins,fmaxs,ref_idx
+    
+ 
