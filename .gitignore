@@ -55,3 +55,5 @@ test/
 *.egg-info/
 *.eggs/
 
+
+*.bak

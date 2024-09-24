@@ -1,7 +1,7 @@
 #!/bin/env/python
 #! -*- coding: utf-8 -*-
 
-from Methods import reshape_reorder_swap
+from .Methods import reshape_reorder_swap
 
 def Vdc_reshape_reorder(Vdc,Vdc_shape,l,sym=True,ref='interlaced'):
     """Deprecated"""

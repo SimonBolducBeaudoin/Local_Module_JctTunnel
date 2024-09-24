@@ -10,7 +10,7 @@ from SBB.Numpy_extra.numpy_extra import reshape_axis,slice_axes,fuse_axes
 def reshape_reorder_swap(Y,axis=-1,sym=True,ref='interlaced',copy=True):
     if copy : # if false the original array is modified
         Y = Y.copy() 
-    ax = range(Y.ndim)[axis] # conveting to positive only axis
+    ax = list(range(Y.ndim))[axis] # conveting to positive only axis
     # Reshape
     if sym and (ref is 'interlaced') :
         l = Y.shape[ax]//4
@@ -50,19 +50,19 @@ def unreshape_reorder_swap(Y,axis=-1,sym=True,ref='interlaced',copy=True):
         Y = Y.copy() 
     # Reordering
     if sym and (ref is 'interlaced') :
-        ax = range(Y.ndim-2)[axis] 
+        ax = list(range(Y.ndim-2))[axis] 
         Y = Y.swapaxes(ax+1,ax+2)
         Y_view      =  slice_axes(Y, ((ax,0),(ax+1,':')) )   
         Y_view[...] =  slice_axes(Y, ((ax,0),(ax+1,'::-1')) ) 
     elif sym and (ref in ['first','None']) :
-        ax = range(Y.ndim-1)[axis] 
+        ax = list(range(Y.ndim-1))[axis] 
         Y_view      =  slice_axes(Y, ((ax,0),(ax+1,':')) )    
         Y_view[...] =  slice_axes(Y, ((ax,0),(ax+1,'::-1')) ) 
     elif not(sym) and (ref is 'interlaced') :
-        ax = range(Y.ndim-1)[axis] 
+        ax = list(range(Y.ndim-1))[axis] 
         Y = Y.swapaxes(ax+1,ax+2)
     else : # not(sym) and (ref in ['first','None']) :
-        ax = range(Y.ndim)[axis] 
+        ax = list(range(Y.ndim))[axis] 
     # Reshape
     if sym and (ref is 'interlaced') :
         axes = (ax,ax+1,ax+2)

@@ -15,9 +15,9 @@ from SBB.Microwave.Microwave                        import dBm_to_V
 from SBB.Phys.Tunnel_Junction                       import V_th
 
 # Local
-from Routines_SII   import ROUTINE_AVG_GAIN
-from Quadratures    import gen_fmins_fmaxs,Cmpt_cumulants,Cmpt_std_cumulants,C_to_n,C4_correction,Add_Vac_to_Cdc
-from Methods        import build_imin_imax
+from .Routines_SII   import ROUTINE_AVG_GAIN
+from .Quadratures    import gen_fmins_fmaxs,Cmpt_cumulants,Cmpt_std_cumulants,C_to_n,C4_correction,Add_Vac_to_Cdc
+from .Methods        import build_imin_imax
 
 class dn2_photoexcited_info(Info):
     """
@@ -236,7 +236,7 @@ class dn2_photoexcited_exp(dn2_photoexcited_info,Cross_Patern_Lagging_computatio
         idx_it, it = Experiment._super_enumerate(*self._conditions_core_loop_raw[:-1:])
         ### sets the first conditions and wait
         Experiment._repetition_loop_start(self,0)
-        self._first_conditions = it.next()
+        self._first_conditions = next(it)
         self._log.events_print(self._first_conditions)
         self.yoko.set_and_wait(self._first_conditions[0],Waittime=self.yo_wait)
         ### Iterate once on Vdc 
@@ -266,7 +266,7 @@ class dn2_photoexcited_exp(dn2_photoexcited_info,Cross_Patern_Lagging_computatio
     def _repetition_loop_start(self,n,condition_it):
         Experiment._repetition_loop_start(self,n)
         
-        self._first_conditions = condition_it.next()
+        self._first_conditions = next(condition_it)
         self._log.events_print(self._first_conditions)
         self._set_and_wait_all_devices(self._first_conditions)
         vdc_next,vac_next  = self._first_conditions

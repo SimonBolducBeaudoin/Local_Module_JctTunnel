@@ -4,7 +4,7 @@ import numpy as _np
 from pylab import subplots as _subplots
 from matplotlib import cm as _cm
 
-from Quadratures import n_theorie
+from .Quadratures import n_theorie
 
 def plot_C4_correction(Cdc,C4dc_init,Cac,C4ac_init,Labels,label_slice=slice(None)):
     fig,ax = _subplots(2,1)

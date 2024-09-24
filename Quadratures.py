@@ -10,7 +10,7 @@ from SBB.Numpy_extra.numpy_extra        import sub_flat,slice_axis,sub_flatten_n
 from SBB.Data_analysis.fit              import lstsq,polyfit_multi_between
 from SBB.Histograms.histograms_helper   import std_moments_to_moments
 
-from Methods import build_imin_imax
+from .Methods import build_imin_imax
 
 from SBB.Numpy_extra.numpy_extra import slice_axis
 

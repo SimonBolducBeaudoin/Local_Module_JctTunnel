@@ -18,7 +18,7 @@ from SBB.Data_analysis.fit import polyfit_multi_between,polyfit_multi_check,lsts
 from SBB.Phys.Tunnel_Junction import Sdc_of_f,Sdc_asym_of_f,Spa_of_f
 from SBB.Data_Manager.MergeArrays import remove_nan_subarrays
 
-from Methods import build_imin_imax, centered_ref_X,V_jct_unreshape_reorder,reshape_reorder_swap
+from .Methods import build_imin_imax, centered_ref_X,V_jct_unreshape_reorder,reshape_reorder_swap
 from SBB.Pyhegel_extra.Experiment import get_all_with_key
 
 _dt = 31.25e-12
