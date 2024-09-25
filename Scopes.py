@@ -1,5 +1,7 @@
 #!/bin/env/python
 #! -*- coding: utf-8 -*-
+from __future__ import division
+from past.utils import old_div
 import numpy as _np
 from numpy import pi
 from scipy import constants as C
@@ -24,7 +26,7 @@ def VvsI_scope_0(ipol,Vjct_neg,Vjct_pos,imin=None,imax=None,plot_deviation=True,
     yneg = _np.nanmean(abs(Vjct_neg),axis=0)
     Rpos,Vo_pos = polyfit(ipol[w],ypos[w],1)
     Rneg,Vo_neg = polyfit(ipol[w],yneg[w],1)
-    R = (Rpos+Rneg)/2
+    R = old_div((Rpos+Rneg),2)
     if len(ax.lines)==0 : 
         plot_interval(ax,ipol*1e6,abs(Vjct_neg)*1e6,label='neg',marker='.',markersize=10)
         plot_interval(ax,ipol*1e6,Vjct_pos*1e6,label='pos',marker='.',markersize=10)
@@ -132,7 +134,7 @@ def VvsI_scope_2(ipol,Vjct,R,Vo,Dcb,x,data,RvsI,ax=None):
         ax.set_xlabel('Ijct[uA]')
         ax.set_ylabel('Vjct[uV]')
         prop = ax._get_lines.prop_cycler
-        twin.plot(x*1e6,data/x+R,color=next(prop)['color'])
+        twin.plot(x*1e6,old_div(data,x)+R,color=next(prop)['color'])
         twin.plot(ipol*1e6,RvsI,color=next(prop)['color'])
         twin.set_ylim(R,R+1)
         twin.set_ylabel('R[Ohm]')
@@ -141,7 +143,7 @@ def VvsI_scope_2(ipol,Vjct,R,Vo,Dcb,x,data,RvsI,ax=None):
     else:    
         scope_interval_update(ax,ipol*1e6,Vjct*1e6,std=True, n_sigma=3, min_max=True,line_idx=0)
         ax.lines[1].set_data(ipol*1e6,ipol*R*1e6)
-        twin.lines[0].set_data(x*1e6,data/x+R)
+        twin.lines[0].set_data(x*1e6,old_div(data,x)+R)
         twin.lines[1].set_data(ipol*1e6,RvsI)
         ax.texts[0].set_text(textstr)
     return ax
@@ -193,7 +195,7 @@ def noise_Temps_scope(freq,G_of_f,B_of_f,ax=None):
     if ax is None :
         fig,ax = subplots(1,1)
     x = freq*1e-9
-    y = 50.0/(2*C.k)*(B_of_f/G_of_f)
+    y = 50.0/(2*C.k)*(old_div(B_of_f,G_of_f))
     if len(ax.lines)==0 : 
         plot_interval(ax,x,y,std=True, n_sigma=1, min_max=True, label=None, linestyle=None, marker=None, alpha=[None, 0.25, 0.01])
         ax.set_ylim(-1,25)
@@ -216,9 +218,9 @@ def dSIIx_vs_I_scope(ipol,freq,dSIIx,f_slice=slice(30,75,5),R=70.00,T=0.035,ax=N
     if len(ax.lines)==0 : 
         for sii ,f ,c_idx in zip ( _np.moveaxis( dSIIx[...,f_slice],-1,0),freq[f_slice],color_idx[f_slice]):
             plot_interval(ax,ipol*1e6,sii,marker='.',markersize=10,linestyle='none',color=cm.cool(c_idx),label='{:0.2f}'.format(f*1e-9),std=True,min_max=True,n_sigma=1,alpha=[None, 0.25, 0.05])
-            ax.plot(ipol*1e6,Sdc_of_f(2*pi*f,(C.e*(ipol*R)/C.hbar),T,R),color=cm.cool(c_idx))
+            ax.plot(ipol*1e6,Sdc_of_f(2*pi*f,(old_div(C.e*(ipol*R),C.hbar)),T,R),color=cm.cool(c_idx))
             plot_interval(ax2,ipol*1e6,sii,marker='.',markersize=10,linestyle='-',color=cm.cool(c_idx),std=True,min_max=True,n_sigma=1,alpha=[None,0.25,0.05])
-            ax2.plot(ipol*1e6,Sdc_of_f(2*pi*f,(C.e*(ipol*R)/C.hbar),T,R),color=cm.cool(c_idx))
+            ax2.plot(ipol*1e6,Sdc_of_f(2*pi*f,(old_div(C.e*(ipol*R),C.hbar)),T,R),color=cm.cool(c_idx))
         ax.plot(ipol*1e6,C.e*ipol,color='k')
         ax2.plot(ipol*1e6,C.e*ipol,color='k')         
         ax.set_xlabel('Ijct [uA]')
@@ -231,7 +233,7 @@ def dSIIx_vs_I_scope(ipol,freq,dSIIx,f_slice=slice(30,75,5),R=70.00,T=0.035,ax=N
     else:
         for i,(sii,f) in enumerate( zip(_np.moveaxis( dSIIx[...,f_slice],-1,0),freq[f_slice]) ) :
             scope_interval_update(ax,ipol*1e6,sii,std=True, n_sigma=1, min_max=True,line_idx=i)
-            ax.lines[i].set_data(ipol*1e6,Sdc_of_f(2*pi*f,(C.e*(ipol*R)/C.hbar),T,R))
+            ax.lines[i].set_data(ipol*1e6,Sdc_of_f(2*pi*f,(old_div(C.e*(ipol*R),C.hbar)),T,R))
             scope_interval_update(ax2,ipol*1e6,sii,std=True, n_sigma=1, min_max=True,line_idx=i)
     ax.set_title('Rjct={:0.2f}[Ohm];Te={:0.2f}[mK]'.format(R,T*1000))
     return ax
@@ -258,9 +260,9 @@ def dSIIx_origin_Vsf_scope(freq,dB_of_f,dG_of_f,Te=0.055,R=70.0,ax=None):
     if ax2 is None :
         ax2 = ax.twinx()
     if len(ax.lines)==0 : 
-        line, = plot_interval(ax,freq*1e-9,R/(2*C.k)*(-dB_of_f/(dG_of_f)))
-        ax.plot(freq*1e-9,C.h*freq/(2*C.k),ls=':')
-        line, = plot_interval(ax2,freq[1:]*1e-9,0.5*(-dB_of_f/dG_of_f)[...,1:]/(C.h*freq[1:]/(R)),color='b',std=True,n_sigma=3,min_max=True,alpha=[None,0.25,0.05])
+        line, = plot_interval(ax,freq*1e-9,old_div(R,(2*C.k))*(old_div(-dB_of_f,(dG_of_f))))
+        ax.plot(freq*1e-9,old_div(C.h*freq,(2*C.k)),ls=':')
+        line, = plot_interval(ax2,freq[1:]*1e-9,old_div(0.5*(old_div(-dB_of_f,dG_of_f))[...,1:],(old_div(C.h*freq[1:],(R)))),color='b',std=True,n_sigma=3,min_max=True,alpha=[None,0.25,0.05])
         ax2.plot(freq[1:]*1e-9,BoseEinstein(freq[1:],Te)+0.5,ls=':',color=line.get_color())
         ax2.plot(_np.r_[0,16],_np.r_[0.5,0.5],ls='--',color=line.get_color())
         ax.set_ylim(-0.00,0.3)
@@ -270,9 +272,9 @@ def dSIIx_origin_Vsf_scope(freq,dB_of_f,dG_of_f,Te=0.055,R=70.0,ax=None):
         ax2.set_ylabel('Origin excess noise : dB[ph]')
         ax2.set_ylim(-0.0,1.)
     else :
-        scope_interval_update(ax,freq*1e-9,R/(2*C.k)*(-dB_of_f/(dG_of_f)),std=True,n_sigma=3,min_max=True,alpha=[None,0.25,0.05],line_idx=0) 
-        ax.lines[1].set_data(freq*1e-9,C.h*freq/(2*C.k))
-        scope_interval_update(ax2,freq[1:]*1e-9,0.5*(-dB_of_f/dG_of_f)[...,1:]/(C.h*freq[1:]/(R)),std=True,n_sigma=3,min_max=True,alpha=[None,0.25,0.05],line_idx=0)
+        scope_interval_update(ax,freq*1e-9,old_div(R,(2*C.k))*(old_div(-dB_of_f,(dG_of_f))),std=True,n_sigma=3,min_max=True,alpha=[None,0.25,0.05],line_idx=0) 
+        ax.lines[1].set_data(freq*1e-9,old_div(C.h*freq,(2*C.k)))
+        scope_interval_update(ax2,freq[1:]*1e-9,old_div(0.5*(old_div(-dB_of_f,dG_of_f))[...,1:],(old_div(C.h*freq[1:],(R)))),std=True,n_sigma=3,min_max=True,alpha=[None,0.25,0.05],line_idx=0)
         ax2.lines[1].set_data(freq[1:]*1e-9,BoseEinstein(freq[1:],Te)+0.5)
     ax.set_title('Rjct={:0.2f}[Ohm];Te={:0.2f}[mK]'.format(R,Te*1000))
     return ax
@@ -296,8 +298,8 @@ def Temps_in_Time_scope(Temps,ax=None):
     
 def dSIIacx_Vs_f_scope(iac,freq,dSIIx,iac_slice,f_slice,idc,F,R,Te,ax=None):
     omega  = 2*pi*freq
-    nu     = C.e*idc*R/C.hbar
-    nuac   = C.e*iac*R/C.hbar         
+    nu     = old_div(C.e*idc*R,C.hbar)
+    nuac   = old_div(C.e*iac*R,C.hbar)         
     Omega  = F*2*pi
     SII_th = Spa_of_f(omega[None,:],nu,nuac[:,None],Omega,Te,R)
     
@@ -328,8 +330,8 @@ def dSIIacx_Vs_f_scope(iac,freq,dSIIx,iac_slice,f_slice,idc,F,R,Te,ax=None):
 def dSIIacx_Vs_Iac_scope(iac,freq,dSIIx,iac_slice,f_slice,idc,F,R,Te,ax=None):
     
     omega  = 2*pi*freq
-    nu     = C.e*idc*R/C.hbar
-    nuac   = C.e*iac*R/C.hbar         
+    nu     = old_div(C.e*idc*R,C.hbar)
+    nuac   = old_div(C.e*iac*R,C.hbar)         
     Omega  = F*2*pi
     SII_th = Spa_of_f(omega[None,:],nu,nuac[:,None],Omega,Te,R)
     
@@ -344,8 +346,8 @@ def dSIIacx_Vs_Iac_scope(iac,freq,dSIIx,iac_slice,f_slice,idc,F,R,Te,ax=None):
         fig,ax =subplots(1,1) 
     if len(ax.lines)==0 : 
         for sii,siith,f ,c_idx in zip ( _np.moveaxis(dSIIx,-1,0),_np.moveaxis(SII_th,-1,0),freq,color_idx):
-            ax.plot(iac/_np.sqrt(2)*1e6,sii,marker='.',markersize=10,linestyle='none',color=cm.cool(c_idx),label='{:0.1f}'.format(f*1e-9))
-            ax.plot(iac/_np.sqrt(2)*1e6,siith,color=cm.cool(c_idx))       
+            ax.plot(old_div(iac,_np.sqrt(2))*1e6,sii,marker='.',markersize=10,linestyle='none',color=cm.cool(c_idx),label='{:0.1f}'.format(f*1e-9))
+            ax.plot(old_div(iac,_np.sqrt(2))*1e6,siith,color=cm.cool(c_idx))       
         ax.set_ylim(0,)
         ax.grid(True)
         ax.set_xlabel('Iac[uA rms]')
@@ -353,5 +355,5 @@ def dSIIacx_Vs_Iac_scope(iac,freq,dSIIx,iac_slice,f_slice,idc,F,R,Te,ax=None):
         ax.legend(title='f[GHz]',loc='lower right')
     else :
         for i,sii in enumerate( _np.moveaxis(dSIIx,-1,0)):
-            ax.lines[i].set_data(iac/_np.sqrt(2)*1e6,sii)
+            ax.lines[i].set_data(old_div(iac,_np.sqrt(2))*1e6,sii)
     return ax  

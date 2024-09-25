@@ -1,6 +1,8 @@
 #!/bin/env/python
 #! -*- coding: utf-8 -*-
 
+from __future__ import division
+from past.utils import old_div
 import numpy as _np
 from SBB.Matplotlib_extra.plot import plot_interval,scope_interval_update
 from SBB.Phys.Tunnel_Junction import Sdc_of_f,V_th
@@ -98,9 +100,9 @@ def build_imin_imax(freq,shape,R=50.00,T=0.055,fmax =10.e9,imax = 2.1e-6,epsilon
     imin = _np.full(shape,_np.nan)
     for i,f in enumerate(freq) :
         if f < fmax :
-            imin[...,i] = V_th(f,T,epsilon)/R
+            imin[...,i] = old_div(V_th(f,T,epsilon),R)
         else :
-            imin[...,i] = V_th(fmax,T,epsilon)/R
+            imin[...,i] = old_div(V_th(fmax,T,epsilon),R)
     return imin,imax
     
 def V_jct_unreshape_reorder(Vjct):

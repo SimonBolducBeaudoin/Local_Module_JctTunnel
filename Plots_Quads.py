@@ -1,5 +1,7 @@
 #!/bin/env/python
 #! -*- coding: utf-8 -*-
+from __future__ import division
+from past.utils import old_div
 import numpy as _np
 from pylab import subplots as _subplots
 from matplotlib import cm as _cm
@@ -99,7 +101,7 @@ def plot_fano(ns,Labels,label_slice=slice(None),NNplusUn=True):
     fig, ax = _subplots(1,1)
     color_idx = _np.linspace(0, 1.0, len(Labels[label_slice]))
     for n,dn2,l,c_idx in zip( ns[label_slice,...,0],ns[label_slice,...,1] , Labels[label_slice] ,color_idx) :
-        ax.plot(n, (dn2)/(n)  ,marker='.',ls='-',markersize=15.,color=_cm.cool(c_idx),label=l) 
+        ax.plot(n, old_div((dn2),(n))  ,marker='.',ls='-',markersize=15.,color=_cm.cool(c_idx),label=l) 
         if NNplusUn :
             ax.plot(n,(n+1),color='k')
     ax.set_ylim(1,3.0)

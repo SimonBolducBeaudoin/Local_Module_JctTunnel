@@ -1,6 +1,8 @@
 #!/bin/env/python
 #! -*- coding: utf-8 -*-
 
+from __future__ import division
+from past.utils import old_div
 import numpy as _np
 from numpy.fft import rfft, ifftshift, rfftfreq
 from numpy import pi,convolve
@@ -32,7 +34,7 @@ def ROUTINE_SCOPE_0(Vyoko,Vjct,Vpol,SII,Rpol,V_per_bin,flip_Ipol=False,sym=True,
     Vpol = remove_nan_subarrays(Vpol)
     SII  = remove_nan_subarrays(SII)
         
-    SII   = SII*(V_per_bin)**2 / 50.0**2 ## A**2
+    SII   = old_div(SII*(V_per_bin)**2, 50.0**2) ## A**2
     dSII = centered_ref_X(SII,axis=-2)
     
     Vyoko   = reshape_reorder_swap(Vyoko,axis=-1,sym=sym,ref=ref)
@@ -42,9 +44,9 @@ def ROUTINE_SCOPE_0(Vyoko,Vjct,Vpol,SII,Rpol,V_per_bin,flip_Ipol=False,sym=True,
     dSII  = reshape_reorder_swap(dSII,axis=-2,sym=sym,ref='first')
     
     if flip_Ipol :
-        Ipol = (-1)*_np.nanmean( Vpol/Rpol, axis = 0 )
+        Ipol = (-1)*_np.nanmean( old_div(Vpol,Rpol), axis = 0 )
     else: 
-        Ipol = _np.nanmean( Vpol/Rpol, axis = 0 )
+        Ipol = _np.nanmean( old_div(Vpol,Rpol), axis = 0 )
     
     return Vjct,Ipol,SII,dSII
     
@@ -53,14 +55,14 @@ def ROUTINE_SCOPE_1(Vyoko,SII,Rtot,V_per_bin,sym=True,ref='interlaced') :
     no dmms   
     """
     SII  = remove_nan_subarrays(SII)
-    SII   = SII*(V_per_bin)**2 / 50.0**2 ## A**2
+    SII   = old_div(SII*(V_per_bin)**2, 50.0**2) ## A**2
     dSII = centered_ref_X(SII,axis=-2)
    
     Vdc   = reshape_reorder_swap(Vyoko,axis=-1,sym=sym,ref=ref)
     SII   = reshape_reorder_swap(SII,axis=-2,sym=sym,ref=ref)
     dSII  = reshape_reorder_swap(dSII,axis=-2,sym=sym,ref='first')
     
-    Ipol = Vyoko/Rtot
+    Ipol = old_div(Vyoko,Rtot)
     return Ipol,SII,dSII
 
 def ROUTINE_LOAD_0(file,R_pol = 100.0185e3,V_per_bin=0.00021957308303365236,flip_Ipol=False) :
@@ -72,12 +74,12 @@ def ROUTINE_LOAD_0(file,R_pol = 100.0185e3,V_per_bin=0.00021957308303365236,flip
     data  = _np.load(file)
     Vdc   = data['Vdc']
     if flip_Ipol :
-        I_pol = (-1)*_np.nanmean( data['V_pol']/R_pol, axis = 0 )
+        I_pol = (-1)*_np.nanmean( old_div(data['V_pol'],R_pol), axis = 0 )
     else:
-        I_pol = _np.nanmean( data['V_pol']/R_pol, axis = 0 )
+        I_pol = _np.nanmean( old_div(data['V_pol'],R_pol), axis = 0 )
     V_jct = data['V_jct']
-    SII   = data['SII']*(V_per_bin)**2 / 50.0**2 ## A**2
-    dSII  = data['dSII']*(V_per_bin)**2 / 50.0**2 ## A**2
+    SII   = old_div(data['SII']*(V_per_bin)**2, 50.0**2) ## A**2
+    dSII  = old_div(data['dSII']*(V_per_bin)**2, 50.0**2) ## A**2
     return Vdc, I_pol, V_jct, SII, dSII
     
 def ROUTINE_LOAD_1(file,Rtot = 110204,V_per_bin=0.00021957308303365236,flip_Ipol=False) :
@@ -91,11 +93,11 @@ def ROUTINE_LOAD_1(file,Rtot = 110204,V_per_bin=0.00021957308303365236,flip_Ipol
     
     Ipol = _np.full((2,2,len(Vdc)),_np.nan)
     if flip_Ipol :
-        Ipol = (-1)*Vdc/Rtot
+        Ipol = old_div((-1)*Vdc,Rtot)
     else: 
-        Ipol = Vdc/Rtot
-    SII   = data['SII']*(V_per_bin)**2 / 50.0**2 ## A**2
-    dSII  = data['dSII']*(V_per_bin)**2 / 50.0**2 ## A**2
+        Ipol = old_div(Vdc,Rtot)
+    SII   = old_div(data['SII']*(V_per_bin)**2, 50.0**2) ## A**2
+    dSII  = old_div(data['dSII']*(V_per_bin)**2, 50.0**2) ## A**2
     return Vdc, Ipol, SII, dSII
     
 def ROUTINE_COMBINE_LOAD_0(files) :
@@ -233,7 +235,7 @@ def ROUTINE_FIT_T (ipol,freq,dSIIx,i_slice,f_slice,Rjct=70.0,T_xpctd=0.055,tol=1
     """
     def fit_func_2D(I,f,p):
         Te = p[0]
-        tmp = Sdc_of_f(2*pi*f[None,:],(C.e*(I*Rjct)/C.hbar)[:,None],Te,Rjct)
+        tmp = Sdc_of_f(2*pi*f[None,:],(old_div(C.e*(I*Rjct),C.hbar))[:,None],Te,Rjct)
         return tmp.flatten()
 
     p0 = [T_xpctd,]
@@ -302,7 +304,7 @@ def ROUTINE_FIT_COUL_BLOCK(ipol,Vjct,i_below=-1.e-6,i_above=1.e-6,i_mask=None,Dc
     
     def fit_func(I,p):
         Dcb = p[0]
-        return (Vo*_np.tanh(I/abs(Dcb)))
+        return (Vo*_np.tanh(old_div(I,abs(Dcb))))
     
     x    = ipol[i_mask]
     data = vjct[i_mask] - R*x
@@ -311,7 +313,7 @@ def ROUTINE_FIT_COUL_BLOCK(ipol,Vjct,i_below=-1.e-6,i_above=1.e-6,i_mask=None,Dc
     
     Dcb, = lstsq(x,data,p0,fit_func,tol=tol)[0] 
     
-    return R,Vo,Dcb,x,data,fit_func(ipol,[Dcb])/ipol+R
+    return R,Vo,Dcb,x,data,old_div(fit_func(ipol,[Dcb]),ipol)+R
     
 def ROUTINE_SII_0(I_pol,SII,dSII,fast=True,windowing=True,i=65,l_kernel=257) :
     """
@@ -385,9 +387,9 @@ def ROUTINE_GAIN_0 (freq,ipol,SII_of_f,dSII_of_f,degree = 1,R=70.00,T_xpctd=0.05
     P  = polyfit_multi_between(ipol, SII_of_f[:,1,:,:].swapaxes(-2,-1),imin,imax,deg=degree)
     dP = polyfit_multi_between(ipol, dSII_of_f.swapaxes(-2,-1),imin,imax,deg=degree)
 
-    G_of_f  = P[...,-2]/C.e
+    G_of_f  = old_div(P[...,-2],C.e)
     B_of_f  = P[...,-1]
-    dG_of_f  = dP[...,-2]/C.e
+    dG_of_f  = old_div(dP[...,-2],C.e)
     dB_of_f = dP[...,-1]
     
     return G_of_f, B_of_f, P, dG_of_f, dB_of_f, dP
@@ -400,7 +402,7 @@ def ROUTINE_GAIN_1(freq,ipol,dSII_of_f,degree = 1,R=70.00,T_xpctd=0.055,fmax =10
     imin,imax = build_imin_imax(freq,shape,R=R,T=T_xpctd,fmax=fmax,imax=imax,epsilon=epsilon)
     dP = polyfit_multi_between(ipol, dSII_of_f.swapaxes(-2,-1),imin,imax,deg=degree)
      
-    dG_of_f  = dP[...,-2]/C.e
+    dG_of_f  = old_div(dP[...,-2],C.e)
     dB_of_f = dP[...,-1]
     
     return dG_of_f, dB_of_f, dP
@@ -416,7 +418,7 @@ def ROUTINE_GAIN_2 (freq,ipol,SII_of_f,dSII_of_f,degree = 1,R=70.00,T_xpctd=0.05
     dP = polyfit_multi_between(ipol, dSII_of_f.swapaxes(-2,-1),imin,imax,deg=degree)
 
     B_of_f  = P[...,-1]
-    dG_of_f = dP[...,-2]/C.e
+    dG_of_f = old_div(dP[...,-2],C.e)
     dB_of_f = dP[...,-1]
     
     return B_of_f, dG_of_f, dB_of_f
@@ -432,7 +434,7 @@ def ROUTINE_GAIN_3 (freq,ipol,SII_of_f,dSII_of_f,gain_fit_params):
     dP = polyfit_multi_between(ipol, dSII_of_f.swapaxes(-2,-1),imin,imax,deg=1)
 
     B_of_f  = P[...,-1]
-    dG_of_f = dP[...,-2]/C.e
+    dG_of_f = old_div(dP[...,-2],C.e)
     dB_of_f = dP[...,-1]
     
     return B_of_f, dG_of_f, dB_of_f
@@ -443,13 +445,13 @@ def ROUTINE_AVG_GAIN(Vyoko,SII,Rtot,V_per_bin,l_kernel,gain_fit_params,windowing
     Return dG_of_f
         No dmm ==> Ipol deduced from R_tot
     """ 
-    SII  = _np.nanmean(SII,axis=0)[None,:]*(V_per_bin)**2 / 50.0**2 ## A**2
+    SII  = old_div(_np.nanmean(SII,axis=0)[None,:]*(V_per_bin)**2, 50.0**2) ## A**2
     dSII = centered_ref_X(SII,axis=-2)
      
     Vyoko   = reshape_reorder_swap(Vyoko,axis=-1,sym=sym,ref=ref)
     dSII = reshape_reorder_swap(dSII,axis=-2,sym=sym,ref='first')
       
-    Ipol = Vyoko[1,1]/Rtot
+    Ipol = old_div(Vyoko[1,1],Rtot)
     freq = rfftfreq(l_kernel,_dt)
     if windowing :
         dSII    = window_after(dSII , i=i, t_demi=1)
@@ -458,15 +460,15 @@ def ROUTINE_AVG_GAIN(Vyoko,SII,Rtot,V_per_bin,l_kernel,gain_fit_params,windowing
     shape       = dSII_of_f.swapaxes(-2,-1).shape[:-1]
     imin,imax   = build_imin_imax(freq,shape,**gain_fit_params)
     dP          = polyfit_multi_between(Ipol, dSII_of_f.swapaxes(-2,-1),imin,imax,deg=1) 
-    return dP[0,...,-2]/C.e
+    return old_div(dP[0,...,-2],C.e)
 
 
 def ROUTINE_dSIIx(dSII_of_f,dB_of_f,dG_of_f):
-    return (dSII_of_f-dB_of_f[:,None,:])/dG_of_f[:,None,:]
+    return old_div((dSII_of_f-dB_of_f[:,None,:]),dG_of_f[:,None,:])
     
 def ROUTINE_dSIIx_1(dSII_of_f,dB_of_f,dG_of_f,SII_antisym_of_f):
-    dSIIx = (dSII_of_f-dB_of_f[:,None,:])/dG_of_f[:,None,:]
-    dSIIx_asym = SII_antisym_of_f[:,1,...]/dG_of_f[:,None,:]
+    dSIIx = old_div((dSII_of_f-dB_of_f[:,None,:]),dG_of_f[:,None,:])
+    dSIIx_asym = old_div(SII_antisym_of_f[:,1,...],dG_of_f[:,None,:])
     return dSIIx,dSIIx_asym
     
 def ROUTINE_FIT_T (ipol,freq,dSIIx,i_slice,f_slice,Rjct=70.0,T_xpctd=0.055,tol=1e-15):
@@ -476,7 +478,7 @@ def ROUTINE_FIT_T (ipol,freq,dSIIx,i_slice,f_slice,Rjct=70.0,T_xpctd=0.055,tol=1
     """
     def fit_func_2D(I,f,p):
         Te = p[0]
-        tmp = Sdc_of_f(2*pi*f[None,:],(C.e*(I*Rjct)/C.hbar)[:,None],Te,Rjct)
+        tmp = Sdc_of_f(2*pi*f[None,:],(old_div(C.e*(I*Rjct),C.hbar))[:,None],Te,Rjct)
         return tmp.flatten()
 
     p0 = [T_xpctd,]
@@ -493,7 +495,7 @@ def ROUTINE_FIT_RT(ipol,freq,dSIIx,i_slice,f_slice,R_xptd=70.0,T_xpctd=0.055,tol
     def fit_func_2D(I,f,p):
         Te = p[0]
         R  = p[1]
-        tmp = Sdc_of_f(2*pi*f[None,:],(C.e*(I*R)/C.hbar)[:,None],Te,R)
+        tmp = Sdc_of_f(2*pi*f[None,:],(old_div(C.e*(I*R),C.hbar))[:,None],Te,R)
         return tmp.flatten()
 
     p0 = [T_xpctd,R_xptd]
@@ -512,7 +514,7 @@ def ROUTINE_COULBLOCK_FIT_T (ipol,r,freq,dSIIx,i_slice,f_slice,T_xpctd=0.055,tol
     def fit_func_2D(X,f,p):
         I,R = X[0],X[1]
         Te = p[0]
-        tmp = Sdc_of_f(2*pi*f[None,:],(C.e*(I*R)/C.hbar)[:,None],Te,R[:,None])
+        tmp = Sdc_of_f(2*pi*f[None,:],(old_div(C.e*(I*R),C.hbar))[:,None],Te,R[:,None])
         return tmp.flatten()
 
     p0 = [T_xpctd,]
@@ -532,7 +534,7 @@ def ROUTINE_COULBLOCK_FIT_RT (ipol,dr,freq,dSIIx,i_slice,f_slice,R_xptd=70.0,T_x
         I,dR = X[0],X[1]
         Te = p[0]
         R  = p[1]+dR
-        tmp = Sdc_of_f(2*pi*f[None,:],(C.e*(I*R)/C.hbar)[:,None],Te,R[:,None])
+        tmp = Sdc_of_f(2*pi*f[None,:],(old_div(C.e*(I*R),C.hbar))[:,None],Te,R[:,None])
         return tmp.flatten()
 
     p0 = [T_xpctd,R_xptd]
@@ -552,7 +554,7 @@ def ROUTINE_FIT_TvsF(ipol,freq,dSIIx,Rjct=70.0,T_xpctd=0.055,tol=1e-15):
     for sii ,f  in zip ( _np.moveaxis( dSIIx[:,:,:],-1,0),freq[:] ):
         p0 = [T_xpctd,]
         def fit_func(I,p):
-            return Sdc_of_f(2*pi*f,(C.e*(I*Rjct)/C.hbar),p[0],Rjct)
+            return Sdc_of_f(2*pi*f,(old_div(C.e*(I*Rjct),C.hbar)),p[0],Rjct)
         Temps += [ lstsq(ipol,_np.nanmean(sii,axis=0),p0,fit_func,tol=tol)[0][0],]
     Temps = _np.r_[Temps]
     return Temps
@@ -565,7 +567,7 @@ def ROUTINE_COULBLOCK_FIT_TvsF(ipol,freq,dSIIx,RvsI,T_xpctd=0.055,tol=1e-15):
     for sii ,f  in zip ( _np.moveaxis( dSIIx[:,:,:],-1,0),freq[:] ):
         p0 = [T_xpctd,]
         def fit_func(I,p):
-            return Sdc_of_f(2*pi*f,(C.e*(I*RvsI)/C.hbar),p[0],RvsI)
+            return Sdc_of_f(2*pi*f,(old_div(C.e*(I*RvsI),C.hbar)),p[0],RvsI)
         Temps += [ lstsq(ipol,_np.nanmean(sii,axis=0),p0,fit_func,tol=tol)[0][0],]
     Temps = _np.r_[Temps]
     return Temps
@@ -594,7 +596,7 @@ def ROUTINE_TEMP_in_TIME(ipol,freq,dSII,R,imax=0.8e-6,fmin=3.1e9,fmax=10.0e9,fas
 def FIT_I0 (ipol,freq,dSII_asym,i_slice=slice(None),f_slice=slice(15,80),R_xptd=50.0,T_xpctd=0.016,tol=1e-15):
     def fit_func_2D(I,f,p):
         i0 = p[0]
-        tmp = Sdc_asym_of_f(2*pi*f[None,:],(C.e*I*R_xptd/C.hbar)[:,None], C.e*i0*R_xptd/C.hbar,T_xpctd,R_xptd)
+        tmp = Sdc_asym_of_f(2*pi*f[None,:],(old_div(C.e*I*R_xptd,C.hbar))[:,None], old_div(C.e*i0*R_xptd,C.hbar),T_xpctd,R_xptd)
         return tmp.flatten()
     p0 = [5.0e-9,]
     data = _np.nanmean(dSII_asym[...,i_slice,f_slice],axis=0)
@@ -607,7 +609,7 @@ def FIT_I0_w_dR (ipol,dr,freq,dSII_asym,i_slice=slice(None),f_slice=slice(15,80)
         I,dR = X[0],X[1]
         i0 = p[0]
         R  = R_xptd+dR
-        tmp = Sdc_asym_of_f(2*pi*f[None,:],(C.e*I*R/C.hbar)[:,None], (C.e*i0*R/C.hbar)[:,None],T_xpctd,R[:,None])
+        tmp = Sdc_asym_of_f(2*pi*f[None,:],(old_div(C.e*I*R,C.hbar))[:,None], (old_div(C.e*i0*R,C.hbar))[:,None],T_xpctd,R[:,None])
         return tmp.flatten()
     p0 = [5.0e-9,]
     data = _np.nanmean(dSII_asym[...,i_slice,f_slice],axis=0)
@@ -624,8 +626,8 @@ def ROUTINE_FIT_ALPHA (iac,freq,dSIIx,iac_slice,f_slice,idc,F,R,Te,alpha_xpctd=7
     def fit_func_2D(iac,f,p):
         Iac   = iac*p[0]
         omega = 2*pi*f
-        nu    = C.e*idc*R/C.hbar
-        nuac  = C.e*Iac*R/C.hbar        
+        nu    = old_div(C.e*idc*R,C.hbar)
+        nuac  = old_div(C.e*Iac*R,C.hbar)        
         Omega = F*2*pi
         return Spa_of_f(omega[None,:],nu,nuac[:,None],Omega,Te,R).flatten()
     p0   = [alpha_xpctd,]

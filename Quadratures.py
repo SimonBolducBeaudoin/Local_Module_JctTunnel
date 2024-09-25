@@ -1,6 +1,8 @@
 #!/bin/env/python
 #! -*- coding: utf-8 -*-
 
+from __future__ import division
+from past.utils import old_div
 import numpy as _np
 from matplotlib.pyplot import subplots
 from scipy import constants as _C
@@ -64,8 +66,8 @@ def Cmpt_cumulants(std_moments,fold=2.0):
     cumulants           =  _np.full( moments.shape  ,_np.nan) 
     cumulants[...,0]    =  moments[...,0]
     cumulants[...,1]    =  moments[...,1]  #/sqrt(fold)???
-    cumulants[...,2]    =   moments[...,2] / fold
-    cumulants[...,4]    = ( moments[...,4]     - 3.0*(moments[...,2] )**2  ) /(fold**2)
+    cumulants[...,2]    =   old_div(moments[...,2], fold)
+    cumulants[...,4]    = old_div(( moments[...,4]     - 3.0*(moments[...,2] )**2  ),(fold**2))
     return cumulants
 
 def Cmpt_std_cumulants(std_moments,fold=2.0):
@@ -79,8 +81,8 @@ def Cmpt_std_cumulants(std_moments,fold=2.0):
     cumulants           =  _np.full( std_moments.shape  ,_np.nan) 
     cumulants[...,0]    =  std_moments[...,0]
     cumulants[...,1]    =  std_moments[...,1]  #/sqrt(fold)???
-    cumulants[...,2]    =  std_moments[...,2] / fold                    # Cumulant instead of StdCumulant for order 2
-    cumulants[...,4]    = ( std_moments[...,4]  - 3.0  ) /(fold**2)
+    cumulants[...,2]    =  old_div(std_moments[...,2], fold)                    # Cumulant instead of StdCumulant for order 2
+    cumulants[...,4]    = old_div(( std_moments[...,4]  - 3.0  ),(fold**2))
     return cumulants
     
 def Cmpt_std_cumulants_sample(Std_cumulants,ref_axis=-3):
@@ -99,7 +101,7 @@ def Cmpt_std_cumulants_sample(Std_cumulants,ref_axis=-3):
     
     C2 = cdn[...,2]
     C2s = cdn[...,2] -ref[...,2] + 0.5
-    ratio = C2/C2s # C2/C2s
+    ratio = old_div(C2,C2s) # C2/C2s
     
     for i in range(Std_cumulants.shape[-1]):
         if i == 0 :
@@ -125,8 +127,8 @@ def Add_Vac_to_Cdc(Ipol,Cdc,f_maxs,R,Te,fmax=10000000000.0, imax=2.1e-06,epsilon
     return Cdc,Pdc
 
 def n_theorie(I,f1,f2,R,Te):
-    n1 = n_th(f1*2*_np.pi,_C.e*I*R/_C.hbar,Te=Te,R=R)
-    n2 = n_th(f2*2*_np.pi,_C.e*I*R/_C.hbar,Te=Te,R=R)
+    n1 = n_th(f1*2*_np.pi,old_div(_C.e*I*R,_C.hbar),Te=Te,R=R)
+    n2 = n_th(f2*2*_np.pi,old_div(_C.e*I*R,_C.hbar),Te=Te,R=R)
     return (n1+n2)/2.0
     
 

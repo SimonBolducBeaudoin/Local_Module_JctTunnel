@@ -1,5 +1,7 @@
 #!/bin/env/python
 #! -*- coding: utf-8 -*-
+from __future__ import division
+from past.utils import old_div
 import numpy as np
 
 from SBB.Pyhegel_extra.Experiment                   import logger,Info, Cross_Patern_Lagging_computation, Experiment
@@ -114,7 +116,7 @@ class dn2_photoexcited_info(Info):
         #self.conditions                   = self.get_conditions() 
         self.meta                         = self._meta_info 
         
-        self.Idc                          = self._conditions_core_loop_raw[0]/(self.meta['R_tot'])
+        self.Idc                          = old_div(self._conditions_core_loop_raw[0],(self.meta['R_tot']))
         self.gain_fit_params              = self.meta['gain_fit_params']
         self.yo_wait                      = self.meta['yo_wait']
         self.moments_order                = self.meta['moments_order']
@@ -123,7 +125,7 @@ class dn2_photoexcited_info(Info):
         self.n_threads     = int(self.meta['n_threads'])
         self.l_data        = int(self.meta['l_data'])
         self.l_kernel      = int(self.meta['l_kernel'])
-        self.l_hc          = self.l_kernel/2 + 1
+        self.l_hc          = old_div(self.l_kernel,2) + 1
         self.l_kernel_sym  = self.l_hc                # Diviser par deux car on va symétrisé
         self.l_fft         = int(self.meta['l_fft'])
         self.nb_of_bin     = int(self.meta['nb_of_bin'])
@@ -358,7 +360,7 @@ def Std_moments_to_Cs_NO_CORR(std_m_dc,std_m_ac,fast=True,only_p=True):
     return Cdc,Cac
 
 def get_abscisses(Vac_dBm,alpha,R,F,Labels,separator=['&'],prefix=None):
-    Iac = alpha*dBm_to_V(Vac_dBm,R)/R/np.sqrt(2)    
+    Iac = old_div(old_div(alpha*dBm_to_V(Vac_dBm,R),R),np.sqrt(2))    
     f_mins,f_maxs = gen_fmins_fmaxs(Labels,separator=separator,prefix=prefix)
     return Iac,f_mins,f_maxs
 
@@ -373,7 +375,7 @@ def Std_moments_to_Cs(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=Tr
         
     Iac,f_mins,f_maxs = get_abscisses(Vac_dBm,alpha,R,F,Labels,separator=separator,prefix=prefix)
     
-    If = V_th(F/2)/R # Courant correspondant à une certaine fréquence .. 
+    If = old_div(V_th(old_div(F,2)),R) # Courant correspondant à une certaine fréquence .. 
     _,ref_idx = find_nearest_A_to_a(If,Ipol)
     
     Cdc      = Cmpt_cumulants(std_m_dc)         # Cumulants
@@ -414,7 +416,7 @@ def Std_moments_to_ns(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,Labels,fast=Tr
     # from here always work on averarage over experiements
     Cdc_std = np.nanstd(Cdc,axis=0)
     Cac_std = np.nanstd(Cac,axis=0)
-    StdC4ac = Cac[...,4]/Cac[...,2]**2
+    StdC4ac = old_div(Cac[...,4],Cac[...,2]**2)
     StdC4ac_std = np.nanstd(StdC4ac,axis=0)
     StdC4ac = np.nanmean(StdC4ac,axis=0)
     Cdc = np.nanmean(Cdc,axis=0)
@@ -438,9 +440,9 @@ def Std_moments_to_Cs_2(std_m_dc,std_m_ac,Vac_dBm,alpha,R,Te,F,Ipol,fmaxs,fast=T
     if only_p: # fix for when I choose the wrong  
         std_m_ac = std_m_ac[:,0,...] # only p
     
-    Iac = alpha*dBm_to_V(Vac_dBm,R)/R/np.sqrt(2)
+    Iac = old_div(old_div(alpha*dBm_to_V(Vac_dBm,R),R),np.sqrt(2))
     
-    If = V_th(F/2)/R # Courant correspondant à une certaine fréquence .. 
+    If = old_div(V_th(old_div(F,2)),R) # Courant correspondant à une certaine fréquence .. 
     _,ref_idx = find_nearest_A_to_a(If,Ipol)
     
     Cdc      = Cmpt_cumulants(std_m_dc)         # Cumulants
