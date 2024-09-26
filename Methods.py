@@ -14,13 +14,13 @@ def reshape_reorder_swap(Y,axis=-1,sym=True,ref='interlaced',copy=True):
         Y = Y.copy() 
     ax = list(range(Y.ndim))[axis] # conveting to positive only axis
     # Reshape
-    if sym and (ref is 'interlaced') :
+    if sym and (ref =='interlaced') :
         l = Y.shape[ax]//4
         x_shape = (2,l,2)
     elif sym and (ref in ['first','None']) :
         l = Y.shape[ax]//2
         x_shape = (2,l)
-    elif not(sym) and (ref is 'interlaced') :
+    elif not(sym) and (ref =='interlaced') :
         l = Y.shape[ax]//2
         x_shape = (l,2)
     else : # not(sym) and (ref in ['first','None','none']) :
@@ -29,7 +29,7 @@ def reshape_reorder_swap(Y,axis=-1,sym=True,ref='interlaced',copy=True):
     Y = reshape_axis(Y,x_shape,axis=ax) # Reshaping
     
     # Reordering
-    if sym and (ref is 'interlaced') :
+    if sym and (ref =='interlaced') :
         # Y[...,0,:,:,...] = Y[...,0,::-1,:,...] 
         Y_view      =  slice_axes(Y, ((ax,0),(ax+1,':')) )    # Getting a view of Y
         Y_view[...] =  slice_axes(Y, ((ax,0),(ax+1,'::-1')) ) # Coyping data at the right place
@@ -39,7 +39,7 @@ def reshape_reorder_swap(Y,axis=-1,sym=True,ref='interlaced',copy=True):
         Y_view      =  slice_axes(Y, ((ax,0),(ax+1,':')) )    # Getting a view of Y
         Y_view[...] =  slice_axes(Y, ((ax,0),(ax+1,'::-1')) ) # Coyping data at the right place
         return Y # ... (2,l) ...
-    elif not(sym) and (ref is 'interlaced') :
+    elif not(sym) and (ref =='interlaced') :
         # Y[...,0,:,:,...] = Y[...,0,::-1,:,...] 
         return Y.swapaxes(ax,ax+1) # ... (2,l) ...
     elif not(sym) and (ref in ['first','None']) :
@@ -51,7 +51,7 @@ def unreshape_reorder_swap(Y,axis=-1,sym=True,ref='interlaced',copy=True):
     if copy : # if false the original array is modified
         Y = Y.copy() 
     # Reordering
-    if sym and (ref is 'interlaced') :
+    if sym and (ref =='interlaced') :
         ax = list(range(Y.ndim-2))[axis] 
         Y = Y.swapaxes(ax+1,ax+2)
         Y_view      =  slice_axes(Y, ((ax,0),(ax+1,':')) )   
@@ -60,17 +60,17 @@ def unreshape_reorder_swap(Y,axis=-1,sym=True,ref='interlaced',copy=True):
         ax = list(range(Y.ndim-1))[axis] 
         Y_view      =  slice_axes(Y, ((ax,0),(ax+1,':')) )    
         Y_view[...] =  slice_axes(Y, ((ax,0),(ax+1,'::-1')) ) 
-    elif not(sym) and (ref is 'interlaced') :
+    elif not(sym) and (ref =='interlaced') :
         ax = list(range(Y.ndim-1))[axis] 
         Y = Y.swapaxes(ax+1,ax+2)
     else : # not(sym) and (ref in ['first','None']) :
         ax = list(range(Y.ndim))[axis] 
     # Reshape
-    if sym and (ref is 'interlaced') :
+    if sym and (ref =='interlaced') :
         axes = (ax,ax+1,ax+2)
     elif sym and (ref in ['first','None']) :
         axes = (ax,ax+1)
-    elif not(sym) and (ref is 'interlaced') :
+    elif not(sym) and (ref =='interlaced') :
         axes = (ax,ax+1)
     else : # not(sym) and (ref in ['first','None']) :
         axes = (ax,)
