@@ -8,7 +8,7 @@ from numpy.fft import rfft, ifftshift, rfftfreq
 from numpy import pi,convolve
 from scipy import constants as C
 from scipy.ndimage import convolve1d
-from scipy import polyfit
+from numpy import polyfit
 from matplotlib.pyplot import subplots
 from numba import njit,vectorize,float64
 
