@@ -6,7 +6,7 @@ import numpy as np
 
 from SBB.Pyhegel_extra.Experiment                   import logger,Info, Cross_Patern_Lagging_computation, Experiment
 # from SBB.Pyhegel_extra.Pyhegel_wrappers             import Yoko_wrapper, Guzik_wrapper , PSG_wrapper,DelayLine_wrapper
-from SBB.Time_quadratures.time_quadratures          import TimeQuad_FFT_float_to_Hist_uint64_t_int16_t   as TimeQuad
+from SBB.Time_quadratures.time_quadratures          import TimeQuad_FFT_float_to_Hist2D_uint32_t_int16_t   as TimeQuad
 from SBB.Time_quadratures.time_quadratures          import TimeQuadSync_FFT_float_to_Hist2D_uint32_t_int16_t as TimeQuadSync
 from SBB.Time_quadratures.kernels                   import make_kernels
 
