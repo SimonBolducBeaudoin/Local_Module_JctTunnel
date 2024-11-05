@@ -398,7 +398,7 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         super(dn2SyncExp,self)._loop_core(tuple(),tuple())
     
     def _all_loop_close(self):
-        self.moments_vacuum[...] = compute_moments2D(self.Hs_vacuum,self.H_x,order = self.moments_order,Cx=self.hn[:,0][:,None,None],Cy=self.hn[:,1][:,None,None],implementation='numba')
+        self.moments_vacuum[...] = compute_moments2D(self.Hs_vacuum,self.H_x,order = self.moments_order,Cx=self.hn[:,0],Cy=self.hn[:,1],implementation='numba')
         self.moments_ac[...] = compute_moments2D(self.Hs_vac,self.H_x,order = self.moments_order,Cx=self.hn[:,0][:,None,None],Cy=self.hn[:,1][:,None,None],implementation='numba')
         super(dn2SyncExp,self)._all_loop_close()
         
