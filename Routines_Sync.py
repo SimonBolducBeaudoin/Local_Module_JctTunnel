@@ -379,7 +379,7 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
             #  self.Y.reset() # Clear histograms # We accumulate over a whole (all repetitions) experiment now
             self.Y.execute( self.ks, self.data_gz ) 
             self.Hs_vac[:,k] = self.Y.Histograms()
-            self.SII_vac[n+1,k]= self.get_SII_phi(self.data_gz)
+            # self.SII_vac[n+1,k]= self.get_SII_phi(self.data_gz)
         self._log.event(1)
         super(dn2SyncExp,self)._loop_core(index_tuple,condition_tuple)
     def _last_loop_core_iteration(self,n):
@@ -388,7 +388,7 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         # self.Y.reset()
         self.Y.execute( self.ks, self.data_gz ) 
         self.Hs_vac[:,-1] = self.Y.Histograms()
-        self.SII_vac[n+1,-1]= self.get_SII_phi(self.data_gz) 
+        # self.SII_vac[n+1,-1]= self.get_SII_phi(self.data_gz) 
         
         self.G_avg = ROUTINE_AVG_GAIN(self._conditions_core_loop_raw[0],self.SII_vdc,self.meta['R_tot'],self.meta['V_per_bin'],self.l_kernel,self.gain_fit_params,windowing=True,i=65)
         
