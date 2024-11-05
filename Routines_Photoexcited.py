@@ -54,7 +54,7 @@ class dn2_photoexcited_info(Info):
         super(dn2_photoexcited_info,self)._set_options(options)
         self._conditions_options    =   {'antisym':options.get('Vdc_antisym') }                                      # Sweeping on positive and negative DC current
         self._ref_options           =   {'interlacing': options.get('interlacing') , 'no_ref':options.get('no_ref')} # Referencing patern
-        self.V_modes = options.get('Voltage_modes') # True or False
+        # self.V_modes = options.get('Voltage_modes') # True or False
     def _set_conditions(self,conditions):
         super(dn2_photoexcited_info,self)._set_conditions(conditions)
     @staticmethod
@@ -136,7 +136,7 @@ class dn2_photoexcited_info(Info):
         self.betas         = self.meta['betas']
         self.Thetas        = self.meta['Thetas']
        
-        self.make_kernels_d = dict(t=self.t,betas=self.betas[None,...],g=None,window=True,alpha=self.alpha,Z=self.meta['R_jct'],Theta=self.Thetas,half_norm=True,Voltage_modes=self.V_modes)
+        self.make_kernels_d = dict(t=self.t,betas=self.betas[None,...],g=None,window=True,alpha=self.alpha,Z=self.meta['R_jct'],Theta=self.Thetas,half_norm=True)
         
         self.n_quads       = self.meta['ks'].shape[0]
         self.n_filters     = self.meta['ks'].shape[1]
