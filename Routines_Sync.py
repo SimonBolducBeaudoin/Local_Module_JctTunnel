@@ -210,10 +210,10 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         angles = []
         for i in range(reps):
             if channel_idx is None :
-                data=self.gz.get();
+                data=self.gz.get()
             else :
-                data=self.gz.get()[channel_idx];
-            R=singleDFTterm(data,int(F),int(samp_rate));
+                data=self.gz.get()[channel_idx]
+            R=singleDFTterm(data,int(F),int(samp_rate))
             angles += [np.angle(R,deg=True),]
         print("Angle : {}".format(np.mean(angles)))
         return np.mean(angles)
@@ -289,7 +289,6 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         self.psg.set_ampl(-135)
         self.psg.set_output(True)
         
-        gz_params= self.gz.get_config_inputs() # saving current gz config
         self.psg.set_ampl(self.psg_A_phase_mes) 
         self.reset_phase(f=self.F,p_target=self.phase_target_deg,reps=self.reps_phase_mes,channel_idx=self.channel_idx_phase_mes)
         self.pump_phase[0] = self.get_phase(F=self.F,reps=self.reps_phase_mes,channel_idx=self.channel_idx_phase_mes)
@@ -348,7 +347,6 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         self.Hs_vacuum = self.X.Histograms()
         
         # Reseting the phase to 0
-        gz_params= self.gz.get_config_inputs() # saving current gz config
         self.psg.set_ampl(self.psg_A_phase_mes) 
         self.pump_phase[n+1] = self.get_phase(F=self.F,reps=self.reps_phase_mes,channel_idx=self.channel_idx_phase_mes)
         self.reset_phase(f=self.F,p_target=self.phase_target_deg,reps=self.reps_phase_mes,channel_idx=self.channel_idx_phase_mes)
