@@ -272,10 +272,10 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
 
         # Those two arrays will be passed between exp_reps and between big_exp_reps
         self.Hs_vacuum  = np.zeros((n_filters,nb_of_bin,nb_of_bin),dtype=np.uint64) 
-        self.Hs_vac     = np.zeros((n_filters,l_Vac,period,nb_of_bin,nb_of_bin),dtype=np.uint64) # approx 18 GB in ram for my tipical workload.
+        self.Hs_vac     = np.zeros((l_Vac,n_filters,period,nb_of_bin,nb_of_bin),dtype=np.uint64) # approx 18 GB in ram for my tipical workload.
         
         self.moments_vacuum = np.full( (n,n_filters             ,self.moments_order+1,self.moments_order+1), np.nan )
-        self.moments_ac     = np.full( (n,n_filters,l_Vac,period,self.moments_order+1,self.moments_order+1), np.nan )  
+        self.moments_ac     = np.full( (n,l_Vac,n_filters,period,self.moments_order+1,self.moments_order+1), np.nan )  
         self.H_x        = TimeQuad.abscisse(max,nb_of_bin) 
    
     def compute_g_bin_v_per_v(self,G_of_f):
