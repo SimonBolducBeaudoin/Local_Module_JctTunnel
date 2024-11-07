@@ -258,23 +258,24 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         self.make_kernels_d['half_norm'] = True 
         self.data_gz   = self.gz.get()[0] # int16
         self.X         = TimeQuad(self.ks_default,self.data_gz, self.meta['dt'],self.l_fft,self.nb_of_bin,self.meta['max'],self.n_threads)
-        self.Y         = TimeQuadSync(self.ks_default,self.data_gz, self.meta['dt'],self.l_fft,self.nb_of_bin,self.period,self.meta['max'],self.n_threads)
+        l_Vac          = len(self._conditions_core_loop_raw[1])
+        self.Y         = TimeQuadSync(self.ks_default,self.data_gz, self.meta['dt'],self.l_fft,self.nb_of_bin,self.period,self.meta['max'],self.n_threads,n_exp=l_Vac)
         self.X.execute( self.ks_default, self.data_gz ) # force the initialization of memory
-        self.Y.execute( self.ks_default, self.data_gz ) # force the initialization of memory
+        self.Y.execute( self.ks_default, self.data_gz , i_exp=0) # force the initialization of memory
     def _init_Histograms(self):
         n               = self._n_measures
-        l_Vdc           = len(self._conditions_core_loop_raw[0])
         l_Vac           = len(self._conditions_core_loop_raw[1])
         max             = self.meta['max'] 
         nb_of_bin       = self.nb_of_bin
         period          = self.period
         n_filters       = self.n_filters
-        # We accumulate over all reps now
+
+        # Those two arrays will be passed between exp_reps and between big_exp_reps
         self.Hs_vacuum  = np.zeros((n_filters,nb_of_bin,nb_of_bin),dtype=np.uint64) 
-        self.Hs_vac     = np.zeros((n_filters,l_Vac,period,nb_of_bin,nb_of_bin),dtype=np.uint32) 
-        self.moments_vacuum = np.full( (n_filters,self.moments_order+1,self.moments_order+1), np.nan )  
-        # self.moments_ac = np.full( (n+1,n_filters,l_Vac,period,self.moments_order+1,self.moments_order+1), np.nan )
-        self.moments_ac = np.full( (n_filters,l_Vac,period,self.moments_order+1,self.moments_order+1), np.nan )  
+        self.Hs_vac     = np.zeros((n_filters,l_Vac,period,nb_of_bin,nb_of_bin),dtype=np.uint64) # approx 18 GB in ram for my tipical workload.
+        
+        self.moments_vacuum = np.full( (n,n_filters             ,self.moments_order+1,self.moments_order+1), np.nan )
+        self.moments_ac     = np.full( (n,n_filters,l_Vac,period,self.moments_order+1,self.moments_order+1), np.nan )  
         self.H_x        = TimeQuad.abscisse(max,nb_of_bin) 
    
     def compute_g_bin_v_per_v(self,G_of_f):
@@ -338,20 +339,6 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         self.make_kernels_d['g'] = g
         self.ks , self.hn = make_kernels(**self.make_kernels_d)
         
-        # Get vacuum level
-        self.psg.set_ampl(-135)                                    
-        self.yoko.set_and_wait(0,Waittime=self.yo_wait)
-        self.data_gz  = self.gz.get()[0]
-        # self.X.reset() # Clear histograms # We accumulate over a whole (all repetitions) experiment now
-        self.X.execute( self.ks, self.data_gz ) 
-        self.Hs_vacuum = self.X.Histograms()
-        
-        # Reseting the phase to 0
-        self.psg.set_ampl(self.psg_A_phase_mes) 
-        self.pump_phase[n+1] = self.get_phase(F=self.F,reps=self.reps_phase_mes,channel_idx=self.channel_idx_phase_mes)
-        self.reset_phase(f=self.F,p_target=self.phase_target_deg,reps=self.reps_phase_mes,channel_idx=self.channel_idx_phase_mes)
-        self.psg.set_ampl(-135)
-        
         # Set first condition
         vdc_next,vac_next  = self._first_conditions
         self.psg.set_ampl(vac_next)                                    
@@ -369,48 +356,70 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         if index_it.next_dim == 0 :
             self.yoko.set(vdc_next)
             self.psg.set_ampl(vac_next)
-        else : # index_it.next_dim == 1
+        else : # index_it.next_dim == 1            
+            if index_it.current_dim == 0 : 
+                # RESET PHASE
+                self.psg.set_ampl(self.psg_A_phase_mes) 
+                self.pump_phase[n+1] = self.get_phase(F=self.F,reps=self.reps_phase_mes,channel_idx=self.channel_idx_phase_mes)
+                self.reset_phase(f=self.F,p_target=self.phase_target_deg,reps=self.reps_phase_mes,channel_idx=self.channel_idx_phase_mes)                
+                # GET VACUUM 
+                self.psg.set_ampl(-135)                                    
+                self.yoko.set_and_wait(0,Waittime=self.yo_wait)
+                self.data_gz  = self.gz.get()[0]
+                self.X.execute( self.ks, self.data_gz ) 
+                
             self.psg.set_ampl(vac_next)                                  
             self.yoko.set(vdc_next)                                      
         self._log.event(0)
+        
         if index_it.current_dim == 0 :     
             self.SII_vdc[n+1,j]= self.get_SII(self.data_gz)
         else: # index_it.current_dim == 1 :
-            #  self.Y.reset() # Clear histograms # We accumulate over a whole (all repetitions) experiment now
-            self.Y.execute( self.ks, self.data_gz ) 
-            self.Hs_vac[:,k] = self.Y.Histograms()
+            self.Y.execute( self.ks, self.data_gz, i_exp=k ) 
             # self.SII_vac[n+1,k]= self.get_SII_phi(self.data_gz)
         self._log.event(1)
         super(dn2SyncExp,self)._loop_core(index_tuple,condition_tuple)
+        
     def _last_loop_core_iteration(self,n):
         self.data_gz   = self.gz.get()[0] # int16 
         self._log.event(0)
-        # self.Y.reset()
-        self.Y.execute( self.ks, self.data_gz ) 
-        self.Hs_vac[:,-1] = self.Y.Histograms()
+        l_Vac             = len(self._conditions_core_loop_raw[1])
+        self.Y.execute( self.ks, self.data_gz, i_exp=l_Vac-1 ) 
         # self.SII_vac[n+1,-1]= self.get_SII_phi(self.data_gz) 
         
         self.G_avg = ROUTINE_AVG_GAIN(self._conditions_core_loop_raw[0],self.SII_vdc,self.meta['R_tot'],self.meta['V_per_bin'],self.l_kernel,self.gain_fit_params,windowing=True,i=65)
         
-        # self.moments_ac[...] = compute_moments2D(self.Hs_vac,self.H_x,order = self.moments_order,Cx=self.hn[:,0][:,None,None],Cy=self.hn[:,1][:,None,None],implementation='numba')
+        self.Hs_vac    += self.Y.Histograms()
+        self.Hs_vacuum += self.X.Histograms()
+        
+        self.moments_vacuum[n,...] = compute_moments2D(self.Hs_vacuum,self.H_x,order = self.moments_order,Cx=self.hn[:,0]             ,Cy=self.hn[:,1]             ,implementation='numba')
+        self.moments_ac    [n,...] = compute_moments2D(self.Hs_vac   ,self.H_x,order = self.moments_order,Cx=self.hn[:,0][:,None,None],Cy=self.hn[:,1][:,None,None],implementation='numba')
         
         self._log.event(1)
         super(dn2SyncExp,self)._loop_core(tuple(),tuple())
     
     def _all_loop_close(self):
-        self.moments_vacuum[...] = compute_moments2D(self.Hs_vacuum,self.H_x,order = self.moments_order,Cx=self.hn[:,0],Cy=self.hn[:,1],implementation='numba')
-        self.moments_ac[...] = compute_moments2D(self.Hs_vac,self.H_x,order = self.moments_order,Cx=self.hn[:,0][:,None,None],Cy=self.hn[:,1][:,None,None],implementation='numba')
+        # Safe write
+        filename            = 'Histograms.npz'
+        filename_tmp        = 'Histograms.npz.tmp'
+        path_save=self._save_path 
+        to_save = dict(hs_vacuum=self.Hs_vacuum,hs_vac=self.Hs_vac)
+        _np.savez_compressed(_os.path.join(path_save,filename_tmp),**to_save)
+        _os.replace(filename_tmp,filename)
+        ########
+        
         super(dn2SyncExp,self)._all_loop_close()
         
     def _build_data(self):
+        # 'hs_vacuum'     : self.Hs_vacuum, 
+        # 'hs_vac'        : self.Hs_vac, 
         data = {\
         'ks'            : self.ks_default , # with gain = 1.
         'betas'         : self.betas ,
         'data_gz'       : self.data_gz[:1<<20], # first millon points of the last measurement
-        'hs_vacuum'     : self.Hs_vacuum, 
-        'hs_vac'        : self.Hs_vac, 
         'S2_vdc'        : self.SII_vdc,
         'S2_vac'        : self.SII_vac,
+        'moments_vacuum': self.moments_vacuum,
         'moments_ac'    : self.moments_ac,
         'Vdc'           : self._conditions_core_loop_raw[0],
         'Vac'           : self._conditions_core_loop_raw[1],
