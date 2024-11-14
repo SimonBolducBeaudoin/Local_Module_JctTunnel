@@ -5,7 +5,7 @@ from past.utils import old_div
 import numpy as _np
 from numpy import pi
 from scipy import constants as C
-from scipy import polyfit
+from numpy import polyfit
 from pylab import subplots
 from matplotlib import cm
 from SBB.Matplotlib_extra.logic import get_twin,get_twins, get_next_ax
