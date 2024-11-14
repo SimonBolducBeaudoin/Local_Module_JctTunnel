@@ -3,6 +3,7 @@
 from __future__ import division
 from past.utils import old_div
 import numpy as np
+import os
 
 from SBB.Pyhegel_extra.Experiment                   import logger,Info, Cross_Patern_Lagging_computation, Experiment
 # from SBB.Pyhegel_extra.Pyhegel_wrappers             import Yoko_wrapper, Guzik_wrapper , PSG_wrapper,DelayLine_wrapper
@@ -134,10 +135,9 @@ class dn2SyncInfo(Info):
         self.F             = int(self.meta['F'])
         self.period        = int(self.meta['period'])
         self.gz_phase_mes_params        = self.meta['gz_phase_mes_params']
-        self.psg_A_phase_mes =  self.gz_phase_mes_params['psg_A']
-        self.phase_target_deg =  self.gz_phase_mes_params['phase_target_deg']
-        self.reps_phase_mes =  int(self.gz_phase_mes_params['reps'])
-        self.channel_idx_phase_mes =  int(self.gz_phase_mes_params['channel_idx'])
+        self.psg_A_phase_mes =  self.gz_phase_mes_params.pop('psg_A')
+        self.phase_target_deg =  self.gz_phase_mes_params.pop('phase_target_deg')
+        self.reps_phase_mes =  int(self.gz_phase_mes_params.pop('reps'))
         
         ## important variables from filters
         self.t             = self.meta['t']
@@ -183,7 +183,7 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         loop_sizes  = ( self._n_measures , len(conditions[0]),len(conditions[1]) )
         events      = ["Acquisition : {:04.2F} [s]","Computing : {:04.2F} [s] "]
         rate        = ( self.meta['l_data']*1.0e-9 ,"Rate : {:04.2F} [GSa/s] " )
-        self._log    = logger(loop_sizes=loop_sizes,events=events,rate=rate)
+        self._log    = logger(loop_sizes=loop_sizes,events=events,rate=rate,conditions=('{: .3f}','{: .0f}'))
     def _init_objects(self):
         self.pump_phase = np.full( (self._n_measures+1,),np.nan ) 
         self._init_acorr()
@@ -195,6 +195,9 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         return acorr.res
         
     def get_SII_phi (self,data,data_type = 'int16'):
+        """
+        Broken ??
+        """
         acorr = ACorrUpTo(self.l_kernel_sym,data_type,phi=self.period)
         acorr(data)
         return acorr.res
@@ -256,7 +259,7 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         self.make_kernels_d['half_norm'] = False
         self.ks_default , _ = make_kernels(**self.make_kernels_d)
         self.make_kernels_d['half_norm'] = True 
-        self.data_gz   = self.gz.get()[0] # int16
+        self.data_gz   = self.gz.get() # int16
         self.X         = TimeQuad(self.ks_default,self.data_gz, self.meta['dt'],self.l_fft,self.nb_of_bin,self.meta['max'],self.n_threads)
         l_Vac          = len(self._conditions_core_loop_raw[1])
         self.Y         = TimeQuadSync(self.ks_default,self.data_gz, self.meta['dt'],self.l_fft,self.nb_of_bin,self.period,self.meta['max'],self.n_threads,n_exp=l_Vac)
@@ -271,8 +274,8 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         n_filters       = self.n_filters
 
         # Those two arrays will be passed between exp_reps and between big_exp_reps
-        self.Hs_vacuum  = np.zeros((n_filters,nb_of_bin,nb_of_bin),dtype=np.uint64) 
-        self.Hs_vac     = np.zeros((l_Vac,n_filters,period,nb_of_bin,nb_of_bin),dtype=np.uint64) # approx 18 GB in ram for my tipical workload.
+        self.Hs_vacuum  = np.zeros((      n_filters,       nb_of_bin,nb_of_bin),dtype=np.uint64)  # 8(kernels)*1024*1024*2(bytes) = 17 MB
+        self.Hs_vac     = np.zeros((l_Vac,n_filters,period,nb_of_bin,nb_of_bin),dtype=np.uint64) # 40(l_vac)*8(kernels)*8(period)*1024*1024*2(bytes) = 5.3 GB
         
         self.moments_vacuum = np.full( (n,n_filters             ,self.moments_order+1,self.moments_order+1), np.nan )
         self.moments_ac     = np.full( (n,l_Vac,n_filters,period,self.moments_order+1,self.moments_order+1), np.nan )  
@@ -291,9 +294,12 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         self.psg.set_output(True)
         
         self.psg.set_ampl(self.psg_A_phase_mes) 
-        self.reset_phase(f=self.F,p_target=self.phase_target_deg,reps=self.reps_phase_mes,channel_idx=self.channel_idx_phase_mes)
-        self.pump_phase[0] = self.get_phase(F=self.F,reps=self.reps_phase_mes,channel_idx=self.channel_idx_phase_mes)
+        gz_config=self.gz.get_config_inputs()
+        self.gz.config(**self.gz_phase_mes_params)
+        self.reset_phase(f=self.F,p_target=self.phase_target_deg,reps=self.reps_phase_mes)
+        self.pump_phase[0] = self.get_phase(F=self.F,reps=self.reps_phase_mes)
         self.psg.set_ampl(-135)
+        self.gz.config(**gz_config)
         
         ## Need to measure the fisrt G
         ### get an iterator only for Vdc
@@ -302,13 +308,13 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         Experiment._repetition_loop_start(self,0)
         self._first_conditions = next(it)
         self._log.events_print(self._first_conditions)
-        self.yoko.set_and_wait(self._first_conditions[0],Waittime=self.yo_wait)
+        self.yoko.set_and_wait(self._first_conditions[0],Waittime=self.yo_wait*2)
         ### Iterate once on Vdc 
         core_it = self.core_iterator(idx_it,it)
         for (idx_tpl,cdn_tpl ) in core_it :
             j,                      = idx_tpl     
             vdc_next,               = cdn_tpl   
-            self.data_gz            = self.gz.get()[0] # int16 
+            self.data_gz            = self.gz.get() # int16 
             self.yoko.set_and_wait(vdc_next,Waittime=self.yo_wait)
             self._log.event(0)
             self.SII_vdc[0,j]       = self.get_SII(self.data_gz)        # First accor is before all 
@@ -316,7 +322,7 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
             super(dn2SyncExp,self)._loop_core(idx_tpl,cdn_tpl)
         
         ### Last iteration of that loop
-        self.data_gz            = self.gz.get()[0] # int16 
+        self.data_gz            = self.gz.get() # int16 
         self._log.event(0)
         self.SII_vdc[0,-1]= self.get_SII(self.data_gz)
         
@@ -351,7 +357,7 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         j,k                 = index_tuple     
         vdc_next,vac_next   = condition_tuple  
         # Gathering data from last point
-        self.data_gz       = self.gz.get()[0] # int16 
+        self.data_gz       = self.gz.get() # int16 
         # Setting next conditions
         if index_it.next_dim == 0 :
             self.yoko.set(vdc_next)
@@ -359,20 +365,21 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         else : # index_it.next_dim == 1            
             if index_it.current_dim == 0 : 
                 # RESET PHASE
-                self.psg.set_ampl(self.psg_A_phase_mes) 
-                self.pump_phase[n+1] = self.get_phase(F=self.F,reps=self.reps_phase_mes,channel_idx=self.channel_idx_phase_mes)
-                self.reset_phase(f=self.F,p_target=self.phase_target_deg,reps=self.reps_phase_mes,channel_idx=self.channel_idx_phase_mes)                
+                self.psg.set_ampl(self.psg_A_phase_mes)
+                gz_config=self.gz.get_config_inputs()
+                self.gz.config(**self.gz_phase_mes_params)
+                self.pump_phase[n+1] = self.get_phase(F=self.F,reps=self.reps_phase_mes)
+                self.reset_phase(f=self.F,p_target=self.phase_target_deg,reps=self.reps_phase_mes)    
+                self.gz.config(**gz_config)                
                 # GET VACUUM 
                 self.psg.set_ampl(-135)                                    
-                self.yoko.set_and_wait(0,Waittime=self.yo_wait)
-                self.data_gz  = self.gz.get()[0]
-                self.X.execute( self.ks, self.data_gz ) 
-                
+                self.yoko.set_and_wait(0,Waittime=self.yo_wait*2)
+                self.X.execute( self.ks, self.gz.get() )
             self.psg.set_ampl(vac_next)                                  
             self.yoko.set(vdc_next)                                      
         self._log.event(0)
         
-        if index_it.current_dim == 0 :     
+        if index_it.current_dim == 0 :
             self.SII_vdc[n+1,j]= self.get_SII(self.data_gz)
         else: # index_it.current_dim == 1 :
             self.Y.execute( self.ks, self.data_gz, i_exp=k ) 
@@ -381,7 +388,7 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         super(dn2SyncExp,self)._loop_core(index_tuple,condition_tuple)
         
     def _last_loop_core_iteration(self,n):
-        self.data_gz   = self.gz.get()[0] # int16 
+        self.data_gz   = self.gz.get() # int16 
         self._log.event(0)
         l_Vac             = len(self._conditions_core_loop_raw[1])
         self.Y.execute( self.ks, self.data_gz, i_exp=l_Vac-1 ) 
@@ -389,11 +396,11 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         
         self.G_avg = ROUTINE_AVG_GAIN(self._conditions_core_loop_raw[0],self.SII_vdc,self.meta['R_tot'],self.meta['V_per_bin'],self.l_kernel,self.gain_fit_params,windowing=True,i=65)
         
-        self.Hs_vac    += self.Y.Histograms()
+        self.Hs_vac    += self.Y.Histograms(memory_transfert="share") # Much faster ! prevents useless copies ! In my test it went from 15 s to 5s.
         self.Hs_vacuum += self.X.Histograms()
         
         self.moments_vacuum[n,...] = compute_moments2D(self.Hs_vacuum,self.H_x,order = self.moments_order,Cx=self.hn[:,0]             ,Cy=self.hn[:,1]             ,implementation='numba')
-        self.moments_ac    [n,...] = compute_moments2D(self.Hs_vac   ,self.H_x,order = self.moments_order,Cx=self.hn[:,0][:,None,None],Cy=self.hn[:,1][:,None,None],implementation='numba')
+        self.moments_ac    [n,...] = compute_moments2D(self.Hs_vac   ,self.H_x,order = self.moments_order,Cx=self.hn[:,0][None,:,None],Cy=self.hn[:,1][None,:,None],implementation='numba')
         
         self._log.event(1)
         super(dn2SyncExp,self)._loop_core(tuple(),tuple())
@@ -401,11 +408,11 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
     def _all_loop_close(self):
         # Safe write
         filename            = 'Histograms.npz'
-        filename_tmp        = 'Histograms.npz.tmp'
+        filename_tmp        = 'Histograms.tmp.npz'
         path_save=self._save_path 
         to_save = dict(hs_vacuum=self.Hs_vacuum,hs_vac=self.Hs_vac)
-        _np.savez_compressed(_os.path.join(path_save,filename_tmp),**to_save)
-        _os.replace(filename_tmp,filename)
+        np.savez_compressed(os.path.join(path_save,filename_tmp),**to_save)
+        os.replace(os.path.join(path_save,filename_tmp),os.path.join(path_save,filename))
         ########
         
         super(dn2SyncExp,self)._all_loop_close()
