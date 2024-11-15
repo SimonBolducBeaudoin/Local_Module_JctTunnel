@@ -7,24 +7,11 @@ import os
 
 from SBB.Pyhegel_extra.Experiment                   import logger,Info, Cross_Patern_Lagging_computation, Experiment
 # from SBB.Pyhegel_extra.Pyhegel_wrappers             import Yoko_wrapper, Guzik_wrapper , PSG_wrapper,DelayLine_wrapper
-from SBB.Time_quadratures.time_quadratures          import TimeQuad_FFT_float_to_Hist2D_uint32_t_int16_t   as TimeQuad
-from SBB.Time_quadratures.time_quadratures          import TimeQuadSync_FFT_float_to_Hist2D_uint32_t_int16_t as TimeQuadSync
-from SBB.Time_quadratures.kernels                   import make_kernels
-
-from SBB.Histograms.histograms_helper               import compute_moments2D
 from SBB.AutoCorr.aCorrsOTF.acorrs_otf              import ACorrUpTo
 from SBB.Numpy_extra.numpy_extra                    import find_nearest_A_to_a,build_array_of_objects
-from SBB.Data_analysis.fit                          import polyfit_above_th
-from SBB.Microwave.Microwave                        import dBm_to_V
-from SBB.Phys.Tunnel_Junction                       import V_th
 from SBB.FFT.DFT.utils                              import singleDFTterm
 
-# Local
-from .Routines_SII   import ROUTINE_AVG_GAIN
-from .Quadratures    import gen_fmins_fmaxs,Cmpt_cumulants,Cmpt_std_cumulants,C_to_n,C4_correction,Add_Vac_to_Cdc
-from .Methods        import build_imin_imax
-
-class dn2SyncInfo(Info):
+class SIISyncInfo(Info):
     """
         Last update
         -----------
@@ -44,22 +31,23 @@ class dn2SyncInfo(Info):
             no_ref      : no_referencing is done
     """
     @staticmethod
-    def gen_meta_info(R_jct,R_tot,n_threads,l_data,dt,V_per_bin,l_kernel,F,t,alpha,betas,betas_info,Thetas,ks,Labels,nb_of_bin,period,max,l_fft,ref_idxs,gain_fit_params,yo_wait,moments_order,gz_phase_mes_params):
+    def gen_meta_info(R_jct,R_tot,n_threads,l_data,l_kernel,F,period,ref_idxs,yo_wait,gz_phase_mes_params):
         return {
-            'R_jct':R_jct,'R_tot':R_tot,'n_threads':n_threads,
-            'l_data':l_data,'dt':dt,'V_per_bin':V_per_bin,'l_kernel':l_kernel,'F':F,
-            't':t,'alpha':alpha,'betas':betas,'betas_info':betas_info,'Thetas':Thetas,'ks':ks,'Labels':Labels,
-            'nb_of_bin':nb_of_bin,'max':max,'l_fft':l_fft, 'ref_idxs':ref_idxs,
-            'gain_fit_params':gain_fit_params,'yo_wait':yo_wait,
-            'moments_order':moments_order,'period':period,
+            'R_jct':R_jct,'R_tot':R_tot,
+            'n_threads':n_threads,
+            'l_data':l_data,
+            'l_kernel':l_kernel,'F':F,
+            'ref_idxs':ref_idxs,
+            'yo_wait':yo_wait,
+            'period':period,
             'gz_phase_mes_params':gz_phase_mes_params
             }
     def _set_options(self,options):
-        super(dn2SyncInfo,self)._set_options(options)
+        super(SIISyncInfo,self)._set_options(options)
         self._conditions_options    =   {'antisym':options.get('Vdc_antisym') }                                      # Sweeping on positive and negative DC current
         self._ref_options           =   {'interlacing': options.get('interlacing') , 'no_ref':options.get('no_ref')} # Referencing patern
     def _set_conditions(self,conditions):
-        super(dn2SyncInfo,self)._set_conditions(conditions)
+        super(SIISyncInfo,self)._set_conditions(conditions)
     @staticmethod
     def compute_interlacing(Vdc,ref=0):
         Vdc_interlaced = np.ones(2*len(Vdc))*ref
@@ -82,9 +70,9 @@ class dn2SyncInfo(Info):
         if    ref_options.get('no_ref'): 
             return Vdc
         elif  ref_options.get('interlacing'):
-            return dn2SyncInfo.compute_interlacing(Vdc,ref)
+            return SIISyncInfo.compute_interlacing(Vdc,ref)
         else :
-            return dn2SyncInfo.compute_default_ref(Vdc,ref)
+            return SIISyncInfo.compute_default_ref(Vdc,ref)
     @staticmethod
     def ref_idxs_update(ref_idxs,len_vdc,**ref_options):
         """
@@ -106,7 +94,7 @@ class dn2SyncInfo(Info):
         return tmp  
         
     def _build_attributes(self):
-        super(dn2SyncInfo,self)._build_attributes()
+        super(SIISyncInfo,self)._build_attributes()
         Vdc_antisym                       = self.add_antisym            (self._conditions_core_loop_raw[0]   ,**self._conditions_options )
         Vdc_exp                           = self.add_ref_conditions     (Vdc_antisym ,**self._ref_options )
         tmp_dict = self._conditions_options.copy()
@@ -117,12 +105,10 @@ class dn2SyncInfo(Info):
         self._conditions                  = self._conditions[0],Vdc_exp,Vac_exp ## overwriting condition tuple !!!
         self._conditions_core_loop_raw    = Vdc_exp,Vac_exp                     ## overwriting condition tuple !!!
         #self.conditions                   = self.get_conditions() 
-        self.meta                         = self._meta_info 
+        self.meta                         = self._meta_info
         
         self.Idc                          = old_div(self._conditions_core_loop_raw[0],(self.meta['R_tot']))
-        self.gain_fit_params              = self.meta['gain_fit_params']
         self.yo_wait                      = self.meta['yo_wait']
-        self.moments_order                = self.meta['moments_order']
         
         ## Converting only int to make sure they are properly initialize after opening from .npz
         self.n_threads     = int(self.meta['n_threads'])
@@ -130,8 +116,6 @@ class dn2SyncInfo(Info):
         self.l_kernel      = int(self.meta['l_kernel'])
         self.l_hc          = old_div(self.l_kernel,2) + 1
         self.l_kernel_sym  = self.l_hc                # Diviser par deux car on va symétrisé
-        self.l_fft         = int(self.meta['l_fft'])
-        self.nb_of_bin     = int(self.meta['nb_of_bin'])
         self.F             = int(self.meta['F'])
         self.period        = int(self.meta['period'])
         self.gz_phase_mes_params        = self.meta['gz_phase_mes_params']
@@ -139,19 +123,8 @@ class dn2SyncInfo(Info):
         self.phase_target_deg =  self.gz_phase_mes_params.pop('phase_target_deg')
         self.reps_phase_mes =  int(self.gz_phase_mes_params.pop('reps'))
         
-        ## important variables from filters
-        self.t             = self.meta['t']
-        self.alpha         = self.meta['alpha']
-        self.betas         = self.meta['betas'] 
-        self.Thetas        = self.meta['Thetas']
-       
-        self.make_kernels_d = dict(t=self.t,betas=self.betas[:,None],g=None,window=True,alpha=self.alpha,Z=self.meta['R_jct'],Theta=self.Thetas[None,:],half_norm=True)
         
-        # ks[betas,quads,time]
-        self.n_quads       = self.meta['ks'].shape[1]
-        self.n_filters     = self.meta['ks'].shape[0]
-        
-class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
+class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
     """
     What it does :
         - Mesures the autocorrelation using class ACorrUpTo
@@ -187,12 +160,10 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
     def _init_objects(self):
         self.pump_phase = np.full( (self._n_measures+1,),np.nan ) 
         self._init_acorr()
-        self._init_TimeQuad()
-        self._init_Histograms()
     def get_SII(self,data,data_type = 'int16'):
         acorr =  ACorrUpTo(self.l_kernel_sym,data_type)
         acorr(data)
-        return acorr.res
+        return (acorr.res).copy() # acorr.res is badbly implemented and unsafe. Copying the data removes some issues.
         
     def get_SII_phi (self,data,data_type = 'int16'):
         """
@@ -200,12 +171,8 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         """
         acorr = ACorrUpTo(self.l_kernel_sym,data_type,phi=self.period)
         acorr(data)
-        return acorr.res
+        return (acorr.res).copy() # acorr.res is badbly implemented and unsafe. Copying the data removes some issues.
         
-    def reset_objects(self):
-        self.n_G_trck = 0
-        self.X.reset()
-        self.Y.reset()
     #############
     # Utilities #
     ############# 
@@ -248,47 +215,14 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         n                       = self._n_measures
         l_vdc                   = len(self._conditions_core_loop_raw[0])
         l_vac                   = len(self._conditions_core_loop_raw[1])
-        acorr_vdc_shape         = ( n+1,l_vdc, ) 
-        acorr_vac_shape         = ( n+1,l_vac, )
+        acorr_vdc_shape         = ( n,l_vdc, ) 
+        acorr_vac_shape         = ( n,l_vac, )
         data_type = 'int16'
-        self.SII_vdc            = np.full((n+1,l_vdc            ,self.l_kernel_sym),np.nan) 
-        self.SII_vac            = np.full((n+1,l_vac,self.period,self.l_kernel_sym),np.nan)
-    def _init_TimeQuad(self):
-        g               = np.ones((self.l_hc,),dtype=complex) # dummy fillter for initialization 
-        self.make_kernels_d['g'] = g
-        self.make_kernels_d['half_norm'] = False
-        self.ks_default , _ = make_kernels(**self.make_kernels_d)
-        self.make_kernels_d['half_norm'] = True 
-        self.data_gz   = self.gz.get() # int16
-        self.X         = TimeQuad(self.ks_default,self.data_gz, self.meta['dt'],self.l_fft,self.nb_of_bin,self.meta['max'],self.n_threads)
-        l_Vac          = len(self._conditions_core_loop_raw[1])
-        self.Y         = TimeQuadSync(self.ks_default,self.data_gz, self.meta['dt'],self.l_fft,self.nb_of_bin,self.period,self.meta['max'],self.n_threads,n_exp=l_Vac)
-        self.X.execute( self.ks_default, self.data_gz ) # force the initialization of memory
-        self.Y.execute( self.ks_default, self.data_gz , i_exp=0) # force the initialization of memory
-    def _init_Histograms(self):
-        n               = self._n_measures
-        l_Vac           = len(self._conditions_core_loop_raw[1])
-        max             = self.meta['max'] 
-        nb_of_bin       = self.nb_of_bin
-        period          = self.period
-        n_filters       = self.n_filters
-
-        # Those two arrays will be passed between exp_reps and between big_exp_reps
-        self.Hs_vacuum  = np.zeros((      n_filters,       nb_of_bin,nb_of_bin),dtype=np.uint64)  # 8(kernels)*1024*1024*2(bytes) = 17 MB
-        self.Hs_vac     = np.zeros((l_Vac,n_filters,period,nb_of_bin,nb_of_bin),dtype=np.uint64) # 40(l_vac)*8(kernels)*8(period)*1024*1024*2(bytes) = 5.3 GB
-        
-        self.moments_vacuum = np.full( (n,n_filters             ,self.moments_order+1,self.moments_order+1), np.nan )
-        self.moments_ac     = np.full( (n,l_Vac,n_filters,period,self.moments_order+1,self.moments_order+1), np.nan )  
-        self.H_x        = TimeQuad.abscisse(max,nb_of_bin) 
+        self.SII_vdc            = np.full((n,l_vdc            ,self.l_kernel_sym),np.nan) 
+        self.SII_vac            = np.full((n,l_vac,self.period,self.l_kernel_sym),np.nan)
    
-    def compute_g_bin_v_per_v(self,G_of_f):
-        """
-        Converts G in A**2/A**2
-        to       g in [bin_V/V]
-        """
-        return (1.0/(self.meta['V_per_bin']))*(50.0 / self.meta['R_jct'])*np.sqrt( G_of_f , dtype='complex')
     def _all_loop_open(self) :
-        super(dn2SyncExp,self)._all_loop_open()
+        super(SIISyncExp,self)._all_loop_open()
         self.yoko.set_init_state(abs(self._conditions_core_loop_raw[0]).max())
         self.psg.set_ampl(-135)
         self.psg.set_output(True)
@@ -301,49 +235,13 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         self.psg.set_ampl(-135)
         self.gz.config(**gz_config)
         
-        ## Need to measure the fisrt G
-        ### get an iterator only for Vdc
-        idx_it, it = Experiment._super_enumerate(*self._conditions_core_loop_raw[:-1:])
-        ### sets the first conditions and wait
-        Experiment._repetition_loop_start(self,0)
-        self._first_conditions = next(it)
-        self._log.events_print(self._first_conditions)
-        self.yoko.set_and_wait(self._first_conditions[0],Waittime=self.yo_wait*2)
-        ### Iterate once on Vdc 
-        core_it = self.core_iterator(idx_it,it)
-        for (idx_tpl,cdn_tpl ) in core_it :
-            j,                      = idx_tpl     
-            vdc_next,               = cdn_tpl   
-            self.data_gz            = self.gz.get() # int16 
-            self.yoko.set_and_wait(vdc_next,Waittime=self.yo_wait)
-            self._log.event(0)
-            self.SII_vdc[0,j]       = self.get_SII(self.data_gz)        # First accor is before all 
-            self._log.event(1)
-            super(dn2SyncExp,self)._loop_core(idx_tpl,cdn_tpl)
-        
-        ### Last iteration of that loop
-        self.data_gz            = self.gz.get() # int16 
-        self._log.event(0)
-        self.SII_vdc[0,-1]= self.get_SII(self.data_gz)
-        
-        self._log.event(1)
-        super(dn2SyncExp,self)._loop_core(tuple(),tuple())
-        
-        ### Compute G avg################################################################################
-        self.G_avg = ROUTINE_AVG_GAIN(self._conditions_core_loop_raw[0],self.SII_vdc,self.meta['R_tot'],self.meta['V_per_bin'],self.l_kernel,self.gain_fit_params,windowing=True,i=65)
-        #################################################################################################
+        super(SIISyncExp,self)._loop_core(tuple(),tuple())
 
     def _repetition_loop_start(self,n,condition_it):
         Experiment._repetition_loop_start(self,n)
         
         self._first_conditions = next(condition_it)
         self._log.events_print(self._first_conditions)
-        self._set_and_wait_all_devices(self._first_conditions)
-        
-        #Updating the gain
-        g = self.compute_g_bin_v_per_v(self.G_avg)
-        self.make_kernels_d['g'] = g
-        self.ks , self.hn = make_kernels(**self.make_kernels_d)
         
         # Set first condition
         vdc_next,vac_next  = self._first_conditions
@@ -371,66 +269,33 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
                 self.pump_phase[n+1] = self.get_phase(F=self.F,reps=self.reps_phase_mes)
                 self.reset_phase(f=self.F,p_target=self.phase_target_deg,reps=self.reps_phase_mes)    
                 self.gz.config(**gz_config)                
-                # GET VACUUM 
-                self.psg.set_ampl(-135)                                    
-                self.yoko.set_and_wait(0,Waittime=self.yo_wait*2)
-                self.X.execute( self.ks, self.gz.get() )
             self.psg.set_ampl(vac_next)                                  
             self.yoko.set(vdc_next)                                      
-        self._log.event(0)
         
+        self._log.event(0)
         if index_it.current_dim == 0 :
-            self.SII_vdc[n+1,j]= self.get_SII(self.data_gz)
+            self.SII_vdc[n,j]= self.get_SII(self.data_gz)
         else: # index_it.current_dim == 1 :
-            self.Y.execute( self.ks, self.data_gz, i_exp=k ) 
-            # self.SII_vac[n+1,k]= self.get_SII_phi(self.data_gz)
+            self.SII_vac[n,k]= self.get_SII_phi(self.data_gz)
         self._log.event(1)
-        super(dn2SyncExp,self)._loop_core(index_tuple,condition_tuple)
+        super(SIISyncExp,self)._loop_core(index_tuple,condition_tuple)
         
     def _last_loop_core_iteration(self,n):
         self.data_gz   = self.gz.get() # int16 
         self._log.event(0)
         l_Vac             = len(self._conditions_core_loop_raw[1])
-        self.Y.execute( self.ks, self.data_gz, i_exp=l_Vac-1 ) 
-        # self.SII_vac[n+1,-1]= self.get_SII_phi(self.data_gz) 
-        
-        self.G_avg = ROUTINE_AVG_GAIN(self._conditions_core_loop_raw[0],self.SII_vdc,self.meta['R_tot'],self.meta['V_per_bin'],self.l_kernel,self.gain_fit_params,windowing=True,i=65)
-        
-        self.Hs_vac    += self.Y.Histograms(memory_transfert="share") # Much faster ! prevents useless copies ! In my test it went from 15 s to 5s.
-        self.Hs_vacuum += self.X.Histograms()
-        
-        self.moments_vacuum[n,...] = compute_moments2D(self.Hs_vacuum,self.H_x,order = self.moments_order,Cx=self.hn[:,0]             ,Cy=self.hn[:,1]             ,implementation='numba')
-        self.moments_ac    [n,...] = compute_moments2D(self.Hs_vac   ,self.H_x,order = self.moments_order,Cx=self.hn[:,0][None,:,None],Cy=self.hn[:,1][None,:,None],implementation='numba')
+        self.SII_vac[n,-1]= self.get_SII_phi(self.data_gz) 
         
         self._log.event(1)
-        super(dn2SyncExp,self)._loop_core(tuple(),tuple())
-    
-    def _all_loop_close(self):
-        # Safe write
-        filename            = 'Histograms.npz'
-        filename_tmp        = 'Histograms.tmp.npz'
-        path_save=self._save_path 
-        to_save = dict(hs_vacuum=self.Hs_vacuum,hs_vac=self.Hs_vac)
-        np.savez_compressed(os.path.join(path_save,filename_tmp),**to_save)
-        os.replace(os.path.join(path_save,filename_tmp),os.path.join(path_save,filename))
-        ########
-        
-        super(dn2SyncExp,self)._all_loop_close()
-        
+        super(SIISyncExp,self)._loop_core(tuple(),tuple())
+            
     def _build_data(self):
-        # 'hs_vacuum'     : self.Hs_vacuum, 
-        # 'hs_vac'        : self.Hs_vac, 
         data = {\
-        'ks'            : self.ks_default , # with gain = 1.
-        'betas'         : self.betas ,
         'data_gz'       : self.data_gz[:1<<20], # first millon points of the last measurement
         'S2_vdc'        : self.SII_vdc,
         'S2_vac'        : self.SII_vac,
-        'moments_vacuum': self.moments_vacuum,
-        'moments_ac'    : self.moments_ac,
         'Vdc'           : self._conditions_core_loop_raw[0],
         'Vac'           : self._conditions_core_loop_raw[1],
-        'G_avg'         : self.G_avg,
         'pump_phase'    : self.pump_phase
         }
         return data

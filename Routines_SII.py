@@ -100,77 +100,7 @@ def ROUTINE_LOAD_1(file,Rtot = 110204,V_per_bin=0.00021957308303365236,flip_Ipol
     dSII  = old_div(data['dSII']*(V_per_bin)**2, 50.0**2) ## A**2
     return Vdc, Ipol, SII, dSII
     
-def ROUTINE_COMBINE_LOAD_0(files) :
-    """
-        Returns 
-        Vdc, SII, dSII
-    """
-    Vdc   = get_all_with_key(files,'Vdc',)
-    try :
-        V_pol = get_all_with_key(files,'V_1M',)
-    except KeyError :
-        V_pol = get_all_with_key(files,'V_pol',)
-    V_jct = get_all_with_key(files,'V_jct',)
-    SII   = get_all_with_key(files,'SII',)
-    dSII  = [centered_ref_X(sii,axis=-2) for sii in SII]  
-    return Vdc,V_pol,V_jct,SII, dSII
-
-def ROUTINE_COMBINE_LOAD_1(files) :
-    """
-        Returns 
-        Vdc, SII, dSII
-    """
-    Vdc   = get_all_with_key(files,'Vdc',)
-    SII   = get_all_with_key(files,'SII',)
-    dSII  = [centered_ref_X(sii,axis=-2) for sii in SII]  
-    return Vdc,SII, dSII
-    
-def ROUTINE_COMBINE_LOAD_2(files) :
-    """
-        Returns 
-        Vdc,Vac, SII, dSII
-    """
-    Vdc   = get_all_with_key(files,'Vdc',)
-    Vac   = get_all_with_key(files,'Vac',)
-    Labels  = get_all_with_key(files,'_meta_info',EVAL="[()]['filter_info']['labels']")
-    
-    SII_dc   = get_all_with_key(files,'S2_vdc',)
-    dSII_dc  = [centered_ref_X(sii,axis=-2) for sii in SII_dc]
-    SII_ac   = get_all_with_key(files,'S2_vac',)
-    dSII_ac  = [centered_ref_X(sii,axis=-2) for sii in SII_ac]
-    
-    ks      = get_all_with_key(files,'ks',)
-    betas   = get_all_with_key(files,'betas',)
-    filters = get_all_with_key(files,'filters',)
-    ks      = [k[None,...] for k in ks ]
-    betas   = [b[None,...] for b in betas ]
-    filters = [f[None,...] for f in filters ]
-    
-    G_avg    = get_all_with_key(files,'G_avg',)
-    data_gz    = get_all_with_key(files,'data_gz',)
-    quads    = get_all_with_key(files,'quads',)
-    hs_vdc    = get_all_with_key(files,'hs_vdc',)
-    hs_vac    = get_all_with_key(files,'hs_vac',)
-    
-    moments_dc    = get_all_with_key(files,'moments_dc',)
-    moments_ac    = get_all_with_key(files,'moments_ac',)
-    
-    return Vdc,Vac,Labels,SII_dc, dSII_dc,SII_ac, dSII_ac,ks,betas,filters,G_avg,data_gz,quads,hs_vdc,hs_vac,moments_dc,moments_ac
-    
-def ROUTINE_COMBINE_LOAD_3(files) :
-    """
-        Returns 
-        Vdc,Vac, SII, dSII
-    """    
-    R_jct      = get_all_with_key(files,'_meta_info',EVAL="[()]['R_jct']")
-    F          = get_all_with_key(files,'_meta_info',EVAL="[()]['F']")
-    filter_info = get_all_with_key(files,'_meta_info',EVAL="[()]['filter_info']")
-    V_per_bin  = get_all_with_key(files,'_meta_info',EVAL="[()]['V_per_bin']")
-    gain_fit_params = get_all_with_key(files,'_meta_info',EVAL="[()]['gain_fit_params']")
-    l_kernel = get_all_with_key(files,'_meta_info',EVAL="[()]['l_kernel']")
-    
-    return R_jct,F,filter_info,V_per_bin,gain_fit_params,l_kernel
-def ROUTINE_COMBINE_LOAD_4(files) :
+def ROUTINE_COMBINE_LOAD_6(files) :
     """
         Returns 
         Vdc,Vac, SII, dSII
@@ -206,15 +136,13 @@ def ROUTINE_COMBINE_LOAD_4(files) :
         quads = get_all_with_key(files,'quads',)
     except KeyError :
         quads = None
-    hs_vdc    = get_all_with_key(files,'hs_vdc',)
-    hs_vac    = get_all_with_key(files,'hs_vac',)
     
-    moments_dc    = get_all_with_key(files,'moments_dc',)
+    moments_vacuum    = get_all_with_key(files,'moments_vacuum',)
     moments_ac    = get_all_with_key(files,'moments_ac',)
     
-    return Vdc,Vac,Labels,SII_dc, dSII_dc,SII_ac, dSII_ac,ks,betas,G_avg,data_gz,quads,hs_vdc,hs_vac,moments_dc,moments_ac
+    return Vdc,Vac,Labels,SII_dc, dSII_dc,SII_ac, dSII_ac,ks,betas,G_avg,data_gz,quads,moments_vacuum,moments_ac
     
-def ROUTINE_COMBINE_LOAD_5(files) :
+def ROUTINE_COMBINE_LOAD_7(files) :
     """
         Returns 
         Vdc,Vac, SII, dSII
@@ -227,6 +155,8 @@ def ROUTINE_COMBINE_LOAD_5(files) :
     l_kernel = get_all_with_key(files,'_meta_info',EVAL="[()]['l_kernel']")
     
     return R_jct,F,V_per_bin,gain_fit_params,l_kernel
+   
+    
     
 def ROUTINE_FIT_T (ipol,freq,dSIIx,i_slice,f_slice,Rjct=70.0,T_xpctd=0.055,tol=1e-15):
     """
