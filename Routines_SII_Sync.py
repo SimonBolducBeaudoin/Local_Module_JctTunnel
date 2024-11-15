@@ -163,7 +163,7 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
     def get_SII(self,data,data_type = 'int16'):
         acorr =  ACorrUpTo(self.l_kernel_sym,data_type)
         acorr(data)
-        return acorr.res
+        return (acorr.res).copy() # acorr.res is badbly implemented and unsafe. Copying the data removes some issues.
         
     def get_SII_phi (self,data,data_type = 'int16'):
         """
@@ -171,7 +171,7 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
         """
         acorr = ACorrUpTo(self.l_kernel_sym,data_type,phi=self.period)
         acorr(data)
-        return acorr.res
+        return (acorr.res).copy() # acorr.res is badbly implemented and unsafe. Copying the data removes some issues.
         
     #############
     # Utilities #
