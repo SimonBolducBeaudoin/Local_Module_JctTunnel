@@ -132,16 +132,12 @@ def ROUTINE_COMBINE_LOAD_6(files) :
     
     G_avg    = get_all_with_key(files,'G_avg',)
     data_gz    = get_all_with_key(files,'data_gz',)
-    try :
-        quads = get_all_with_key(files,'quads',)
-    except KeyError :
-        quads = None
     
     moments_vacuum    = get_all_with_key(files,'moments_vacuum',)
     moments_ac    = get_all_with_key(files,'moments_ac',)
     
-    return Vdc,Vac,Labels,SII_dc, dSII_dc,SII_ac, dSII_ac,ks,betas,G_avg,data_gz,quads,moments_vacuum,moments_ac
-    
+    return Vdc,Vac,Labels,SII_dc, dSII_dc,SII_ac, dSII_ac,ks,betas,G_avg,data_gz,moments_vacuum,moments_ac
+        
 def ROUTINE_COMBINE_LOAD_7(files) :
     """
         Returns 
@@ -155,7 +151,36 @@ def ROUTINE_COMBINE_LOAD_7(files) :
     l_kernel = get_all_with_key(files,'_meta_info',EVAL="[()]['l_kernel']")
     
     return R_jct,F,V_per_bin,gain_fit_params,l_kernel
-   
+    
+def ROUTINE_COMBINE_LOAD_8(files) :
+    """
+        Returns 
+        Vdc,Vac, SII, dSII
+    """
+    Vdc   = get_all_with_key(files,'Vdc',)
+    Vac   = get_all_with_key(files,'Vac',)
+            
+    SII_dc   = get_all_with_key(files,'S2_vdc',)
+    dSII_dc  = [centered_ref_X(sii,axis=-2) for sii in SII_dc]
+    SII_ac   = get_all_with_key(files,'S2_vac',)
+    dSII_ac  = [centered_ref_X(sii,axis=-3) for sii in SII_ac] # (...,Vac,period,l_kernel_sym)
+     
+    data_gz    = get_all_with_key(files,'data_gz',)
+     
+    return Vdc,Vac,SII_dc, dSII_dc,SII_ac, dSII_ac,data_gz
+
+def ROUTINE_COMBINE_LOAD_9(files) :
+    """
+        Returns 
+        Vdc,Vac, SII, dSII
+    """
+    R_jct      = get_all_with_key(files,'_meta_info',EVAL="[()]['R_jct']")
+    F          = get_all_with_key(files,'_meta_info',EVAL="[()]['F']")
+    #betas_info = get_all_with_key(files,'_meta_info',EVAL="[()]['betas_info']")
+    
+    l_kernel = get_all_with_key(files,'_meta_info',EVAL="[()]['l_kernel']")
+    
+    return R_jct,F,l_kernel
     
     
 def ROUTINE_FIT_T (ipol,freq,dSIIx,i_slice,f_slice,Rjct=70.0,T_xpctd=0.055,tol=1e-15):
