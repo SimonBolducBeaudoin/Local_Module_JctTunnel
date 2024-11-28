@@ -2,14 +2,17 @@
 #! -*- coding: utf-8 -*-
 from __future__ import division
 from past.utils import old_div
-import numpy as np
-import os
+import numpy as _np
 
 from SBB.Pyhegel_extra.Experiment                   import logger,Info, Cross_Patern_Lagging_computation, Experiment
 # from SBB.Pyhegel_extra.Pyhegel_wrappers             import Yoko_wrapper, Guzik_wrapper , PSG_wrapper,DelayLine_wrapper
 from SBB.AutoCorr.aCorrsOTF.acorrs_otf              import ACorrUpTo
 from SBB.Numpy_extra.numpy_extra                    import find_nearest_A_to_a,build_array_of_objects
 from SBB.FFT.DFT.utils                              import singleDFTterm
+
+from SBB.Data_analysis.window import window_after
+
+_dt = 31.25e-12
 
 class SIISyncInfo(Info):
     """
@@ -50,18 +53,18 @@ class SIISyncInfo(Info):
         super(SIISyncInfo,self)._set_conditions(conditions)
     @staticmethod
     def compute_interlacing(Vdc,ref=0):
-        Vdc_interlaced = np.ones(2*len(Vdc))*ref
+        Vdc_interlaced = _np.ones(2*len(Vdc))*ref
         Vdc_interlaced[1::2] = Vdc
         return Vdc_interlaced
     @staticmethod
     def compute_default_ref(Vdc,ref=0):
-        return np.concatenate(([ref],Vdc))
+        return _np.concatenate(([ref],Vdc))
     @staticmethod
     def add_antisym(Vdc,**sym_options):
         """
         Return Vdc_antisym conditional to sym_options
         """
-        return np.concatenate(([(-1.0)*Vdc[::-1],Vdc])) if sym_options.get('antisym') else Vdc
+        return _np.concatenate(([(-1.0)*Vdc[::-1],Vdc])) if sym_options.get('antisym') else Vdc
     @staticmethod
     def add_ref_conditions(Vdc,ref=0,**ref_options):
         """
@@ -158,7 +161,7 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
         rate        = ( self.meta['l_data']*1.0e-9 ,"Rate : {:04.2F} [GSa/s] " )
         self._log    = logger(loop_sizes=loop_sizes,events=events,rate=rate,conditions=('{: .3f}','{: .0f}'))
     def _init_objects(self):
-        self.pump_phase = np.full( (self._n_measures+1,),np.nan ) 
+        self.pump_phase = _np.full( (self._n_measures+1,),_np.nan ) 
         self._init_acorr()
     def get_SII(self,data,data_type = 'int16'):
         acorr =  ACorrUpTo(self.l_kernel_sym,data_type)
@@ -184,9 +187,9 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
             else :
                 data=self.gz.get()[channel_idx]
             R=singleDFTterm(data,int(F),int(samp_rate))
-            angles += [np.angle(R,deg=True),]
-        print("Angle : {}".format(np.mean(angles)))
-        return np.mean(angles)
+            angles += [_np.angle(R,deg=True),]
+        print("Angle : {}".format(_np.mean(angles)))
+        return _np.mean(angles)
                 
     def reset_phase(self,f=12e9,p_target = 0,reps=3,channel_idx=None):
         T = 1/f * 1e12 # ps
@@ -218,8 +221,8 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
         acorr_vdc_shape         = ( n,l_vdc, ) 
         acorr_vac_shape         = ( n,l_vac, )
         data_type = 'int16'
-        self.SII_vdc            = np.full((n,l_vdc            ,self.l_kernel_sym),np.nan) 
-        self.SII_vac            = np.full((n,l_vac,self.period,self.l_kernel_sym),np.nan)
+        self.SII_vdc            = _np.full((n,l_vdc            ,self.l_kernel_sym),_np.nan) 
+        self.SII_vac            = _np.full((n,l_vac,self.period,self.l_kernel_sym),_np.nan)
    
     def _all_loop_open(self) :
         super(SIISyncExp,self)._all_loop_open()
@@ -300,4 +303,16 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
         }
         return data
 
+   
+from SBB.AutoCorr.util import symmetrize_SIIphi   
      
+def ROUTINE_SII_SYNC_0(SII,F,R=int(32e9),fast=True,windowing=True,i=65) :
+    """
+    Symmetrize the photoexcited autocorrelation properly
+    respecting the rule S_phi(-Tau) = S_{(phi-Omega tau)%2pi}(Tau)
+    """
+    if fast :
+        SII  = _np.nanmean(SII ,axis = 0)[None,...]
+    if windowing :
+        SII    = window_after(SII , i=i, t_demi=1)
+    return _np.fft.rfft(_np.fft.fftshift(symmetrize_SIIphi(SII,F,R)   ,axes=-1))*_dt
