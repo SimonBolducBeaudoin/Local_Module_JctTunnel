@@ -308,6 +308,7 @@ def ROUTINE_FIT_COUL_BLOCK(ipol,Vjct,i_below=-1.e-6,i_above=1.e-6,i_mask=None,Dc
     
 def ROUTINE_SII_0(I_pol,SII,dSII,fast=True,windowing=True,i=65,l_kernel=257) :
     """
+    DEPRECATED !!!
     Computes different noise_of_f metrics.
     Returns 
         freq,ipol,SII_of_f,SII_antisym_of_f,dSII_of_f
@@ -367,6 +368,32 @@ def ROUTINE_SII_2(SII,fast=True,windowing=True,i=65) :
         SII    = window_after(SII , i=i, t_demi=1)
     SII_of_f        =  ( rfft(ifftshift(symetrize(SII)   ,axes=-1))*_dt ).real  
     return SII_of_f
+    
+def ROUTINE_SII_3(I_pol,SII_of_f,dSII_of_f,fast=True,i=65,l_kernel=257) :
+    """
+    Computes different noise_of_f metrics.
+    Returns 
+        freq,ipol,SII_of_f,SII_antisym_of_f,dSII_of_f
+    """
+    
+    freq = rfftfreq(l_kernel,_dt)
+    
+    if fast :
+        SII_of_f   = _np.nanmean(SII_of_f  ,axis = 0)[None,...]
+        dSII_of_f  = _np.nanmean(dSII_of_f ,axis = 0)[None,...]
+
+    if I_pol.ndim >=3 :
+        I_mean = _np.mean( [I_pol[0,0],I_pol[1,0]])
+        I_pol -= I_mean ## removing offset
+        ipol = I_pol[1,1]
+    else : #1 dim
+        ipol = I_pol
+        
+    SII_of_f_sym     = SII_of_f.mean(axis=1)
+    dSII_of_f_sym    = dSII_of_f.mean(axis=1)
+    SII_antisym_of_f = ( SII_of_f[:,1,...] - SII_of_f[:,0,...] )/2.0
+    
+    return freq,ipol,SII_of_f,SII_antisym_of_f,dSII_of_f
         
 def ROUTINE_GAIN_0 (freq,ipol,SII_of_f,dSII_of_f,degree = 1,R=70.00,T_xpctd=0.055,fmax =10.e9,imax=2.0e-6,epsilon=0.0001):
     """
