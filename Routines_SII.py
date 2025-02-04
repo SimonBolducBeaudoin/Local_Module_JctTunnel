@@ -137,6 +137,42 @@ def ROUTINE_COMBINE_LOAD_6(files) :
     moments_ac    = get_all_with_key(files,'moments_ac',)
     
     return Vdc,Vac,Labels,SII_dc, dSII_dc,SII_ac, dSII_ac,ks,betas,G_avg,data_gz,moments_vacuum,moments_ac
+    
+def ROUTINE_COMBINE_LOAD_10(files) :
+    """
+        Returns 
+        Vdc,Vac, SII, dSII
+    """
+    Vdc   = get_all_with_key(files,'Vdc',)
+    Vac   = get_all_with_key(files,'Vac',)
+            
+    Labels = []
+    for file in files :
+        data = _np.load(file,allow_pickle=True)
+        s_data_key = "data[key]" 
+        try : 
+            labels = data['_meta_info'][()]['Labels']
+        except KeyError :
+            labels = data['_meta_info'][()]['filter_info']['labels']
+        Labels.append( labels )
+    Labels = _np.concatenate( [Labels], axis=0) # A concatenated array of all exp
+    
+    SII_dc   = get_all_with_key(files,'S2_vdc',)
+    dSII_dc  = [centered_ref_X(sii,axis=-2) for sii in SII_dc]
+    
+    ks      = get_all_with_key(files,'ks',)
+    betas   = get_all_with_key(files,'betas',)
+    #filters = get_all_with_key(files,'filters',)
+    ks      = [k[None,...] for k in ks ]
+    betas   = [b[None,...] for b in betas ]
+    
+    G_avg    = get_all_with_key(files,'G_avg',)
+    data_gz    = get_all_with_key(files,'data_gz',)
+    
+    moments_vacuum    = get_all_with_key(files,'moments_vacuum',)
+    moments_ac    = get_all_with_key(files,'moments_ac',)
+    
+    return Vdc,Vac,Labels,SII_dc, dSII_dc,ks,betas,G_avg,data_gz,moments_vacuum,moments_ac
         
 def ROUTINE_COMBINE_LOAD_7(files) :
     """

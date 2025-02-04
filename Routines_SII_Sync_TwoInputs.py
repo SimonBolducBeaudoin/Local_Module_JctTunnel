@@ -10,6 +10,8 @@ from SBB.AutoCorr.aCorrsOTF.acorrs_otf              import ACorrUpTo
 from SBB.Numpy_extra.numpy_extra                    import find_nearest_A_to_a,build_array_of_objects
 from SBB.FFT.DFT.utils                              import singleDFTterm
 
+from fractions import Fraction as _Fraction
+
 from SBB.Data_analysis.window import window_after
 
 _dt = 31.25e-12
@@ -34,7 +36,7 @@ class SIISyncInfo(Info):
             no_ref      : no_referencing is done
     """
     @staticmethod
-    def gen_meta_info(R_jct,R_tot,n_threads,l_data,l_kernel,F,period,ref_idxs,yo_wait,gz_phase_mes_params):
+    def gen_meta_info(R_jct,R_tot,n_threads,l_data,l_kernel,F,period,ref_idxs,yo_wait,gz_config_ac):
         return {
             'R_jct':R_jct,'R_tot':R_tot,
             'n_threads':n_threads,
@@ -43,7 +45,7 @@ class SIISyncInfo(Info):
             'ref_idxs':ref_idxs,
             'yo_wait':yo_wait,
             'period':period,
-            'gz_phase_mes_params':gz_phase_mes_params
+            'gz_config_ac':gz_config_ac
             }
     def _set_options(self,options):
         super(SIISyncInfo,self)._set_options(options)
@@ -121,10 +123,12 @@ class SIISyncInfo(Info):
         self.l_kernel_sym  = self.l_hc                # Diviser par deux car on va symétrisé
         self.F             = int(self.meta['F'])
         self.period        = int(self.meta['period'])
-        self.gz_phase_mes_params        = self.meta['gz_phase_mes_params']
-        self.psg_A_phase_mes =  self.gz_phase_mes_params.pop('psg_A')
-        self.phase_target_deg =  self.gz_phase_mes_params.pop('phase_target_deg')
-        self.reps_phase_mes =  int(self.gz_phase_mes_params.pop('reps'))
+        #self.gz_config_dc     = self.gz.get_config_inputs() # Copies the current gz config
+        self.gz_config_ac        = self.meta['gz_config_ac']
+        self.psg_A_phase_mes =  self.gz_config_ac.pop('psg_A')
+        self.phase_target_deg =  self.gz_config_ac.pop('phase_target_deg')
+        self.smallest_ac_possible =  self.gz_config_ac.pop('smallest_ac_possible')
+        self.reps_phase_mes =  int(self.gz_config_ac.pop('reps'))
         
         
 class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
@@ -179,7 +183,23 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
     #############
     # Utilities #
     ############# 
-    def get_phase(self,F=12e9,samp_rate=32e9,reps=3,channel_idx=None):
+    @staticmethod
+    def get_n_throw_points(theta,F,Clk=1e9,R=32e9,n_target=0):
+        """
+        Returns the number of point to throw away to be synchronized with F.
+        theta = self.get_phase()
+        n = get_n_throw_points(theta,F=...)
+        data_sync = data[n:]
+        
+        It is the responsability of the user to ensure that the resolution on the 
+        phase measurement is under 1/(2 pi den) (aka we can resolve all possible phases)
+        """
+        theta*=-1 
+        den = _Fraction(F/Clk).denominator
+        n_current = round(den*theta/(360)) # in [ -den//2 : den//2-1 ]
+        return int(R/Clk)*((n_target-n_current+den)%den)
+        
+    def get_phase(self,F,samp_rate=32e9,reps=3,channel_idx=None):
         angles = []
         for i in range(reps):
             if channel_idx is None :
@@ -187,10 +207,27 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
             else :
                 data=self.gz.get()[channel_idx]
             R=singleDFTterm(data,int(F),int(samp_rate))
-            angles += [_np.angle(R,deg=True),]
-        print("Angle : {}".format(_np.mean(angles)))
+            # The resolution on the phase must be good enough to find n_throw in a single measurement
+            n_throw = self.get_n_throw_points( _np.angle(R,deg=True),int(F))
+            R=singleDFTterm(data[n_throw:],int(F),int(samp_rate))
+            print("{} : Angle : {} [deg]".format(i ,_np.angle(R,deg=True) ))
+            angles   += [_np.angle(R,deg=True),]
+        print("Angle : {} [deg]".format( _np.mean(angles) ))
         return _np.mean(angles)
-                
+        
+    def gz_get(self,is_ref=False,idx_data=0,idx_phase=1,samp_rate=32e9):
+        """
+        Shifts the data in memory to make sure that it is aligned/in phase with self.F 
+        """
+        if is_ref:
+            return self.gz.get()[idx_data]
+        else :
+            data=self.gz.get()
+            R=singleDFTterm(data[idx_phase],int(self.F),int(samp_rate))
+            # The resolution on the phase must be good enough to find n_throw in a single measurement
+            n_throw = self.get_n_throw_points( _np.angle(R,deg=True),int(self.F))
+            return data[idx_data,n_throw:]
+        
     def reset_phase(self,f=12e9,p_target = 0,reps=3,channel_idx=None):
         T = 1/f * 1e12 # ps
         if '312.5ps'==self.colby.get_mode() :
@@ -230,13 +267,15 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
         self.psg.set_ampl(-135)
         self.psg.set_output(True)
         
+        # Pas nécessaire ###################################################################
+        self.gz_config_dc     = self.gz.get_config_inputs() # Copies the current gz config
         self.psg.set_ampl(self.psg_A_phase_mes) 
-        gz_config=self.gz.get_config_inputs()
-        self.gz.config(**self.gz_phase_mes_params)
-        self.reset_phase(f=self.F,p_target=self.phase_target_deg,reps=self.reps_phase_mes)
-        self.pump_phase[0] = self.get_phase(F=self.F,reps=self.reps_phase_mes)
+        self.gz.config(**self.gz_config_ac)
+        self.reset_phase(f=self.F,p_target=self.phase_target_deg,reps=self.reps_phase_mes,channel_idx=1)
+        self.pump_phase[0] = self.get_phase(F=self.F,reps=self.reps_phase_mes,channel_idx=1)
         self.psg.set_ampl(-135)
-        self.gz.config(**gz_config)
+        self.gz.config(**self.gz_config_dc)
+        ####################################################################################
         
         super(SIISyncExp,self)._loop_core(tuple(),tuple())
 
@@ -247,9 +286,14 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
         self._log.events_print(self._first_conditions)
         
         # Set first condition
+        self.gz.config(**self.gz_config_dc)
         vdc_next,vac_next  = self._first_conditions
         self.psg.set_ampl(vac_next)                                    
         self.yoko.set_and_wait(vdc_next,Waittime=self.yo_wait)
+        
+        # initialize 
+        self.next_vac = -135
+        self.is_ref = True
         
     def _loop_core(self,index_tuple,condition_tuple,index_it,condition_it,n):
         """
@@ -257,21 +301,34 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
         """
         j,k                 = index_tuple     
         vdc_next,vac_next   = condition_tuple  
+        self.current_vac    = self.next_vac # Memorized in previous iteration
+        self.skip = True if ( self.is_ref==False and self.current_vac<self.smallest_ac_possible) else False
         # Gathering data from last point
-        self.data_gz       = self.gz.get() # int16 
+        if index_it.current_dim == 0 :
+            self.data_gz       = self.gz.get() # int16 
+        else :  # index_it.current_dim == 1            
+            if self.skip :
+                self.data_gz = None
+            else :    
+                self.data_gz = self.gz_get(is_ref=self.is_ref) # int16 
         # Setting next conditions
         if index_it.next_dim == 0 :
+            # if index_it.current_dim == 1 : 
+                # self.gz.config(**self.gz_config_dc)
             self.yoko.set(vdc_next)
             self.psg.set_ampl(vac_next)
         else : # index_it.next_dim == 1            
             if index_it.current_dim == 0 : 
                 # RESET PHASE
                 self.psg.set_ampl(self.psg_A_phase_mes)
-                gz_config=self.gz.get_config_inputs()
-                self.gz.config(**self.gz_phase_mes_params)
-                self.pump_phase[n+1] = self.get_phase(F=self.F,reps=self.reps_phase_mes)
-                self.reset_phase(f=self.F,p_target=self.phase_target_deg,reps=self.reps_phase_mes)    
-                self.gz.config(**gz_config)                
+                self.gz.config(**self.gz_config_ac)
+                self.pump_phase[n+1] = self.get_phase(F=self.F,reps=self.reps_phase_mes,channel_idx=1)
+                self.reset_phase(f=self.F,p_target=self.phase_target_deg,reps=self.reps_phase_mes,channel_idx=1) 
+            
+            # Saving for next iteration #####################
+            self.is_ref = True if vac_next == -135 else False
+            self.next_vac = vac_next 
+            #################################################
             self.psg.set_ampl(vac_next)                                  
             self.yoko.set(vdc_next)                                      
         
@@ -279,15 +336,21 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
         if index_it.current_dim == 0 :
             self.SII_vdc[n,j]= self.get_SII(self.data_gz)
         else: # index_it.current_dim == 1 :
-            self.SII_vac[n,k]= self.get_SII_phi(self.data_gz)
+            if self.skip :
+                wait(self.yo_wait) 
+            else :
+                self.SII_vac[n,k]= self.get_SII_phi(self.data_gz)
         self._log.event(1)
         super(SIISyncExp,self)._loop_core(index_tuple,condition_tuple)
         
     def _last_loop_core_iteration(self,n):
-        self.data_gz   = self.gz.get() # int16 
+        self.data_gz   = self.gz_get() # int16 
         self._log.event(0)
         l_Vac             = len(self._conditions_core_loop_raw[1])
         self.SII_vac[n,-1]= self.get_SII_phi(self.data_gz) 
+        
+        # Set the guzik for dc conditions
+        self.gz.config(**self.gz_config_dc)
         
         self._log.event(1)
         super(SIISyncExp,self)._loop_core(tuple(),tuple())
