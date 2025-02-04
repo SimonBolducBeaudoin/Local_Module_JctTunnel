@@ -189,10 +189,10 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         acorr(data)
         return (acorr.res).copy() # acorr.res is badbly implemented and unsafe. Copying the data removes some issues.
         
-    def get_SII_phi (self,data,data_type = 'int16'):
-        acorr = ACorrUpTo(self.l_kernel_sym,data_type,phi=self.period)
-        acorr(data)
-        return (acorr.res).copy() # acorr.res is badbly implemented and unsafe. Copying the data removes some issues.
+    # def get_SII_phi (self,data,data_type = 'int16'):
+        # acorr = ACorrUpTo(self.l_kernel_sym,data_type,phi=self.period)
+        # acorr(data)
+        # return (acorr.res).copy() # acorr.res is badbly implemented and unsafe. Copying the data removes some issues.
         
     def reset_objects(self):
         self.n_G_trck = 0
@@ -244,7 +244,7 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         acorr_vac_shape         = ( n+1,l_vac, )
         data_type = 'int16'
         self.SII_vdc            = np.full((n+1,l_vdc            ,self.l_kernel_sym),np.nan) 
-        self.SII_vac            = np.full((l_vac,self.period,self.l_kernel_sym),np.nan)
+        #self.SII_vac            = np.full((l_vac,self.period,self.l_kernel_sym),np.nan)
     def _init_TimeQuad(self):
         g               = np.ones((self.l_hc,),dtype=complex) # dummy fillter for initialization 
         self.make_kernels_d['g'] = g
@@ -334,14 +334,14 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
             self.data_gz            = self.gz.get() # int16 
             self.psg.set_ampl(vac_next)
             self._log.event(0)
-            self.SII_vac[k]= self.get_SII_phi(self.data_gz)
+            # self.SII_vac[k]= self.get_SII_phi(self.data_gz)
             self._log.event(1)
             super(dn2SyncExp,self)._loop_core(idx_tpl,cdn_tpl)
         
         ### Last iteration of that loop
         self.data_gz            = self.gz.get() # int16 
         self._log.event(0)
-        self.SII_vac[-1]= self.get_SII_phi(self.data_gz)
+        # self.SII_vac[-1]= self.get_SII_phi(self.data_gz)
         
         super(dn2SyncExp,self)._loop_core(tuple(),tuple())
 
@@ -435,7 +435,7 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         'betas'         : self.betas ,
         'data_gz'       : self.data_gz[:1<<20], # first millon points of the last measurement
         'S2_vdc'        : self.SII_vdc,
-        'S2_vac'        : self.SII_vac,
+        #'S2_vac'        : self.SII_vac,
         'moments_vacuum': self.moments_vacuum,
         'moments_ac'    : self.moments_ac,
         'Vdc'           : self._conditions_core_loop_raw[0],
