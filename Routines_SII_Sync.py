@@ -231,8 +231,8 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
         acorr_vdc_shape         = ( n,l_vdc, ) 
         acorr_vac_shape         = ( n,l_vac, )
         data_type = 'int16'
-        self.SII_vdc            = _np.full((n,l_vdc            ,self.l_kernel-1),_np.nan) 
-        self.SII_vac            = _np.full((n,l_vac,self.period,self.l_kernel-1),_np.nan)
+        self.SII_vdc            = _np.full((n,l_vdc            ,self.l_kernel-1),_np.nan,dtype=complex) 
+        self.SII_vac            = _np.full((n,l_vac            ,self.l_kernel-1),_np.nan,dtype=complex)
    
     def _all_loop_open(self) :
         super(SIISyncExp,self)._all_loop_open()
