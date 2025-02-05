@@ -188,8 +188,10 @@ def ROUTINE_COMBINE_LOAD_7(files) :
     
     return R_jct,F,V_per_bin,gain_fit_params,l_kernel
     
+# DEPRECATED
 def ROUTINE_COMBINE_LOAD_8(files) :
     """
+        # DEPRECATED
         Returns 
         Vdc,Vac, SII, dSII
     """
@@ -217,6 +219,23 @@ def ROUTINE_COMBINE_LOAD_9(files) :
     l_kernel = get_all_with_key(files,'_meta_info',EVAL="[()]['l_kernel']")
     
     return R_jct,F,l_kernel
+    
+def ROUTINE_COMBINE_LOAD_10(files) :
+    """
+        Returns 
+        Vdc,Vac, SII, dSII
+    """
+    Vdc   = get_all_with_key(files,'Vdc',)
+    Vac   = get_all_with_key(files,'Vac',)
+            
+    SII_dc   = get_all_with_key(files,'S2_vdc',)
+    dSII_dc  = [centered_ref_X(sii,axis=-2) for sii in SII_dc]
+    SII_ac   = get_all_with_key(files,'S2_vac',)
+    dSII_ac  = [centered_ref_X(sii,axis=-2) for sii in SII_ac] # (...,Vac,period,l_kernel_sym)
+     
+    data_gz    = get_all_with_key(files,'data_gz',)
+     
+    return Vdc,Vac,SII_dc, dSII_dc,SII_ac, dSII_ac,data_gz
     
     
 def ROUTINE_FIT_T (ipol,freq,dSIIx,i_slice,f_slice,Rjct=70.0,T_xpctd=0.055,tol=1e-15):
