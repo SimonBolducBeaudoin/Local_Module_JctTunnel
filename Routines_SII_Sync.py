@@ -6,7 +6,6 @@ import numpy as _np
 
 from SBB.Pyhegel_extra.Experiment                   import logger,Info, Cross_Patern_Lagging_computation, Experiment
 # from SBB.Pyhegel_extra.Pyhegel_wrappers             import Yoko_wrapper, Guzik_wrapper , PSG_wrapper,DelayLine_wrapper
-#from SBB.AutoCorr.aCorrsOTF.acorrs_otf              import ACorrUpTo
 from SBB.AutoCorr.autocorr import autocorr_cyclo , autocorr_cyclo_m
 from SBB.Numpy_extra.numpy_extra                    import find_nearest_A_to_a,build_array_of_objects
 from SBB.FFT.DFT.utils                              import singleDFTterm
@@ -312,21 +311,3 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
         'pump_phase'    : self.pump_phase
         }
         return data
-
-   
-from SBB.AutoCorr.util import symmetrize_SIIphi   
-    
-# DEPRECATED    
-def ROUTINE_SII_SYNC_0(SII,F,R=int(32e9),fast=True,windowing=True,i=65) :
-    """
-    DEPRECATED
-    Symmetrize the photoexcited autocorrelation properly
-    respecting the rule S_phi(-Tau) = S_{(phi-Omega tau)%2pi}(Tau)
-    """
-    if fast :
-        SII  = _np.nanmean(SII ,axis = 0)[None,...]
-    if windowing :
-        SII    = window_after(SII , i=i, t_demi=1)
-    return _np.fft.rfft(_np.fft.fftshift(symmetrize_SIIphi(SII,F,R)   ,axes=-1))*_dt
-    
-
