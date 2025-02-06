@@ -6,7 +6,7 @@ import numpy as _np
 
 from SBB.Pyhegel_extra.Experiment                   import logger,Info, Cross_Patern_Lagging_computation, Experiment
 # from SBB.Pyhegel_extra.Pyhegel_wrappers             import Yoko_wrapper, Guzik_wrapper , PSG_wrapper,DelayLine_wrapper
-from SBB.AutoCorr.aCorrsOTF.acorrs_otf              import ACorrUpTo
+from SBB.AutoCorr.autocorr import autocorr_cyclo , autocorr_cyclo_m
 from SBB.Numpy_extra.numpy_extra                    import find_nearest_A_to_a,build_array_of_objects
 from SBB.FFT.DFT.utils                              import singleDFTterm
 
@@ -36,16 +36,20 @@ class SIISyncInfo(Info):
             no_ref      : no_referencing is done
     """
     @staticmethod
-    def gen_meta_info(R_jct,R_tot,n_threads,l_data,l_kernel,F,period,ref_idxs,yo_wait,gz_config_ac):
+    def gen_meta_info(R_jct,R_tot,n_threads,l_data,l_kernel,F,sampling_rate,period,ref_idxs,yo_wait,gz_config_ac,sii_optimal,sii_m1_optimal):
         return {
             'R_jct':R_jct,'R_tot':R_tot,
             'n_threads':n_threads,
             'l_data':l_data,
-            'l_kernel':l_kernel,'F':F,
+            'l_kernel':l_kernel,
+            'F':F,
+            'sampling_rate':sampling_rate,
             'ref_idxs':ref_idxs,
             'yo_wait':yo_wait,
             'period':period,
-            'gz_config_ac':gz_config_ac
+            'gz_config_ac':gz_config_ac,
+            'sii_optimal':sii_optimal,
+            'sii_m1_optimal':sii_m1_optimal
             }
     def _set_options(self,options):
         super(SIISyncInfo,self)._set_options(options)
@@ -116,19 +120,25 @@ class SIISyncInfo(Info):
         self.yo_wait                      = self.meta['yo_wait']
         
         ## Converting only int to make sure they are properly initialize after opening from .npz
-        self.n_threads     = int(self.meta['n_threads'])
-        self.l_data        = int(self.meta['l_data'])
-        self.l_kernel      = int(self.meta['l_kernel'])
-        self.l_hc          = old_div(self.l_kernel,2) + 1
-        self.l_kernel_sym  = self.l_hc                # Diviser par deux car on va symétrisé
-        self.F             = int(self.meta['F'])
-        self.period        = int(self.meta['period'])
-        #self.gz_config_dc     = self.gz.get_config_inputs() # Copies the current gz config
-        self.gz_config_ac        = self.meta['gz_config_ac']
-        self.psg_A_phase_mes =  self.gz_config_ac.pop('psg_A')
-        self.phase_target_deg =  self.gz_config_ac.pop('phase_target_deg')
+        self.n_threads           = int(self.meta['n_threads'])
+        self.l_data              = int(self.meta['l_data'])
+        self.l_kernel            = int(self.meta['l_kernel'])
+        
+        self.F                   = int(self.meta['F'])
+        self.sampling_rate       = int(self.meta['sampling_rate'])      # Sampling rate (int)(Hz)
+        self.period              = int(self.meta['period'])
+        self.gz_config_ac = self.meta['gz_config_ac']
+        
+        self.psg_A_phase_mes     =  self.gz_config_ac.pop('psg_A')
+        self.phase_target_deg    =  self.gz_config_ac.pop('phase_target_deg')
+        self.reps_phase_mes      =  int(self.gz_config_ac.pop('reps'))
         self.smallest_ac_possible =  self.gz_config_ac.pop('smallest_ac_possible')
-        self.reps_phase_mes =  int(self.gz_config_ac.pop('reps'))
+        
+        self.sii_optimal         = self.meta['sii_optimal']
+        self.sii_optimal.update( **{'F':self.F,'R':self.sampling_rate})
+        
+        self.sii_m1_optimal      = self.meta['sii_m1_optimal']
+        self.sii_m1_optimal.update( **{'F':self.F,'R':self.sampling_rate})
         
         
 class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
@@ -168,17 +178,16 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
         self.pump_phase = _np.full( (self._n_measures+1,),_np.nan ) 
         self._init_acorr()
     def get_SII(self,data,data_type = 'int16'):
-        acorr =  ACorrUpTo(self.l_kernel_sym,data_type)
-        acorr(data)
-        return (acorr.res).copy() # acorr.res is badbly implemented and unsafe. Copying the data removes some issues.
+        # Only works for 1int16 fow now
+        # This will need to be multiplied by dt^2 to correspond to the phyisical value
+        # By default it is also normalized using numpy's "backward" convention for ffts
+        return autocorr_cyclo_m(data,m=0,**self.sii_optimal)
         
     def get_SII_phi (self,data,data_type = 'int16'):
-        """
-        Broken ??
-        """
-        acorr = ACorrUpTo(self.l_kernel_sym,data_type,phi=self.period)
-        acorr(data)
-        return (acorr.res).copy() # acorr.res is badbly implemented and unsafe. Copying the data removes some issues.
+        # Only works for 1int16 fow now
+        # This will need to be multiplied by dt^2 to correspond to the phyisical value
+        # By default it is also normalized using numpy's "backward" convention for ffts
+        return autocorr_cyclo_m(data,m=1,**self.sii_m1_optimal)
         
     #############
     # Utilities #
@@ -218,6 +227,7 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
     def gz_get(self,is_ref=False,idx_data=0,idx_phase=1,samp_rate=32e9):
         """
         Shifts the data in memory to make sure that it is aligned/in phase with self.F 
+        FUTURE : add a parameter that truncates the works singleDFTterm does to make the aquisition faster.
         """
         if is_ref:
             return self.gz.get()[idx_data]
@@ -258,8 +268,8 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
         acorr_vdc_shape         = ( n,l_vdc, ) 
         acorr_vac_shape         = ( n,l_vac, )
         data_type = 'int16'
-        self.SII_vdc            = _np.full((n,l_vdc            ,self.l_kernel_sym),_np.nan) 
-        self.SII_vac            = _np.full((n,l_vac,self.period,self.l_kernel_sym),_np.nan)
+        self.SII_vdc            = _np.full((n,l_vdc            ,self.l_kernel-1),_np.nan,dtype=complex) 
+        self.SII_vac            = _np.full((n,l_vac            ,self.l_kernel-1),_np.nan,dtype=complex)
    
     def _all_loop_open(self) :
         super(SIISyncExp,self)._all_loop_open()
@@ -294,7 +304,6 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
         # initialize 
         self.next_vac = -135
         self.is_ref = True
-        
     def _loop_core(self,index_tuple,condition_tuple,index_it,condition_it,n):
         """
             Works conditionnaly to the computing being slower than 0.4 sec
@@ -313,8 +322,6 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
                 self.data_gz = self.gz_get(is_ref=self.is_ref) # int16 
         # Setting next conditions
         if index_it.next_dim == 0 :
-            # if index_it.current_dim == 1 : 
-                # self.gz.config(**self.gz_config_dc)
             self.yoko.set(vdc_next)
             self.psg.set_ampl(vac_next)
         else : # index_it.next_dim == 1            
@@ -365,17 +372,3 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
         'pump_phase'    : self.pump_phase
         }
         return data
-
-   
-from SBB.AutoCorr.util import symmetrize_SIIphi   
-     
-def ROUTINE_SII_SYNC_0(SII,F,R=int(32e9),fast=True,windowing=True,i=65) :
-    """
-    Symmetrize the photoexcited autocorrelation properly
-    respecting the rule S_phi(-Tau) = S_{(phi-Omega tau)%2pi}(Tau)
-    """
-    if fast :
-        SII  = _np.nanmean(SII ,axis = 0)[None,...]
-    if windowing :
-        SII    = window_after(SII , i=i, t_demi=1)
-    return _np.fft.rfft(_np.fft.fftshift(symmetrize_SIIphi(SII,F,R)   ,axes=-1))*_dt
