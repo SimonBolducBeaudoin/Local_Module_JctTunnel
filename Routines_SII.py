@@ -188,8 +188,10 @@ def ROUTINE_COMBINE_LOAD_7(files) :
     
     return R_jct,F,V_per_bin,gain_fit_params,l_kernel
     
+# DEPRECATED
 def ROUTINE_COMBINE_LOAD_8(files) :
     """
+        # DEPRECATED
         Returns 
         Vdc,Vac, SII, dSII
     """
@@ -217,6 +219,23 @@ def ROUTINE_COMBINE_LOAD_9(files) :
     l_kernel = get_all_with_key(files,'_meta_info',EVAL="[()]['l_kernel']")
     
     return R_jct,F,l_kernel
+    
+def ROUTINE_COMBINE_LOAD_10(files) :
+    """
+        Returns 
+        Vdc,Vac, SII, dSII
+    """
+    Vdc   = get_all_with_key(files,'Vdc',)
+    Vac   = get_all_with_key(files,'Vac',)
+            
+    SII_dc   = get_all_with_key(files,'S2_vdc',)
+    dSII_dc  = [centered_ref_X(sii,axis=-2) for sii in SII_dc]
+    SII_ac   = get_all_with_key(files,'S2_vac',)
+    dSII_ac  = [centered_ref_X(sii,axis=-2) for sii in SII_ac] # (...,Vac,period,l_kernel_sym)
+     
+    data_gz    = get_all_with_key(files,'data_gz',)
+     
+    return Vdc,Vac,SII_dc, dSII_dc,SII_ac, dSII_ac,data_gz
     
     
 def ROUTINE_FIT_T (ipol,freq,dSIIx,i_slice,f_slice,Rjct=70.0,T_xpctd=0.055,tol=1e-15):
@@ -308,6 +327,7 @@ def ROUTINE_FIT_COUL_BLOCK(ipol,Vjct,i_below=-1.e-6,i_above=1.e-6,i_mask=None,Dc
     
 def ROUTINE_SII_0(I_pol,SII,dSII,fast=True,windowing=True,i=65,l_kernel=257) :
     """
+    DEPRECATED !!!
     Computes different noise_of_f metrics.
     Returns 
         freq,ipol,SII_of_f,SII_antisym_of_f,dSII_of_f
@@ -339,9 +359,11 @@ def ROUTINE_SII_0(I_pol,SII,dSII,fast=True,windowing=True,i=65,l_kernel=257) :
     dSII_of_f        =  ( rfft(ifftshift(symetrize(dSII_sym)   ,axes=-1))*_dt ).real
     
     return freq,ipol,SII_of_f,SII_antisym_of_f,dSII_of_f
-    
+
+# DEPRECATED #############################################################################
 def ROUTINE_SII_1(dSII,fast=True,windowing=True,i=65) :
     """
+    DEPRECATED
     Computes different noise_of_f metrics.
     Returns 
         freq,ipol,SII_of_f,SII_antisym_of_f,dSII_of_f
@@ -357,6 +379,7 @@ def ROUTINE_SII_1(dSII,fast=True,windowing=True,i=65) :
 
 def ROUTINE_SII_2(SII,fast=True,windowing=True,i=65) :
     """
+    DEPRECATED
     Computes different noise_of_f metrics.
     Returns 
         SII_of_f,
@@ -367,6 +390,45 @@ def ROUTINE_SII_2(SII,fast=True,windowing=True,i=65) :
         SII    = window_after(SII , i=i, t_demi=1)
     SII_of_f        =  ( rfft(ifftshift(symetrize(SII)   ,axes=-1))*_dt ).real  
     return SII_of_f
+    
+########################################################################################
+    
+def ROUTINE_SII_3(I_pol,SII_of_f,dSII_of_f,fast=True,l_kernel=257) :
+    """
+    Computes different noise_of_f metrics.
+    Returns 
+        freq,ipol,SII_of_f,SII_antisym_of_f,dSII_of_f
+    """
+    
+    freq = rfftfreq(l_kernel,_dt)
+    
+    if fast :
+        SII_of_f   = _np.nanmean(SII_of_f  ,axis = 0)[None,...]
+        dSII_of_f  = _np.nanmean(dSII_of_f ,axis = 0)[None,...]
+
+    if I_pol.ndim >=3 :
+        I_mean = _np.mean( [I_pol[0,0],I_pol[1,0]])
+        I_pol -= I_mean ## removing offset
+        ipol = I_pol[1,1]
+    else : #1 dim
+        ipol = I_pol
+        
+    SII_of_f_sym     = SII_of_f.mean(axis=1)
+    dSII_of_f_sym    = dSII_of_f.mean(axis=1)
+    SII_antisym_of_f = ( SII_of_f[:,1,...] - SII_of_f[:,0,...] )/2.0
+    
+    return freq,ipol,SII_of_f_sym,SII_antisym_of_f,dSII_of_f_sym
+    
+def ROUTINE_SII_4(dSII_of_f,fast=True) :
+    """
+    DEPRECATED
+    Computes different noise_of_f metrics.
+    Returns 
+        freq,ipol,SII_of_f,SII_antisym_of_f,dSII_of_f
+    """
+    if fast :
+        dSII_of_f  = _np.nanmean(dSII_of_f ,axis = 0)[None,...] 
+    return  dSII.mean(axis=1)
         
 def ROUTINE_GAIN_0 (freq,ipol,SII_of_f,dSII_of_f,degree = 1,R=70.00,T_xpctd=0.055,fmax =10.e9,imax=2.0e-6,epsilon=0.0001):
     """
@@ -460,6 +522,8 @@ def ROUTINE_dSIIx(dSII_of_f,dB_of_f,dG_of_f):
 def ROUTINE_dSIIx_1(dSII_of_f,dB_of_f,dG_of_f,SII_antisym_of_f):
     dSIIx = old_div((dSII_of_f-dB_of_f[:,None,:]),dG_of_f[:,None,:])
     dSIIx_asym = old_div(SII_antisym_of_f[:,1,...],dG_of_f[:,None,:])
+    dSIIx[_np.where(_np.isnan(dSIIx))]=0
+    dSIIx_asym[_np.where(_np.isnan(dSIIx_asym))]=0
     return dSIIx,dSIIx_asym
     
 def ROUTINE_FIT_T (ipol,freq,dSIIx,i_slice,f_slice,Rjct=70.0,T_xpctd=0.055,tol=1e-15):
@@ -562,8 +626,12 @@ def ROUTINE_COULBLOCK_FIT_TvsF(ipol,freq,dSIIx,RvsI,T_xpctd=0.055,tol=1e-15):
         Temps += [ lstsq(ipol,_np.nanmean(sii,axis=0),p0,fit_func,tol=tol)[0][0],]
     Temps = _np.r_[Temps]
     return Temps
-    
+
+# Deprecated
 def ROUTINE_TEMP_in_TIME(ipol,freq,dSII,R,imax=0.8e-6,fmin=3.1e9,fmax=10.0e9,fast=True,windowing=True,i_win=65):
+    """
+    Deprecated
+    """
     imax_idx = find_nearest_A_to_a(imax,ipol)[1][0]
     fmin_idx = find_nearest_A_to_a(fmin,freq)[1][0]
     fmax_idx = find_nearest_A_to_a(fmax,freq)[1][0]
@@ -581,6 +649,26 @@ def ROUTINE_TEMP_in_TIME(ipol,freq,dSII,R,imax=0.8e-6,fmin=3.1e9,fmax=10.0e9,fas
     L = len(dSII)
     for n_being,n_end in zip(_np.r_[:L],_np.r_[1:L+1]):
         tmp = find_T_between(n_being,n_end,dSII)
+        Te_fit +=[ tmp ]
+    return _np.r_[Te_fit]
+    
+def ROUTINE_TEMP_in_TIME_1(ipol,freq,dSII_of_f,R,imax=0.8e-6,fmin=3.1e9,fmax=10.0e9,fast=True,windowing=True,i_win=65):
+    imax_idx = find_nearest_A_to_a(imax,ipol)[1][0]
+    fmin_idx = find_nearest_A_to_a(fmin,freq)[1][0]
+    fmax_idx = find_nearest_A_to_a(fmax,freq)[1][0]
+    i_slice = slice(0,imax_idx)         # ipol < 0.8uA
+    f_slice = slice(fmin_idx,fmax_idx)  # 3.1 à 9.8 GHz
+    def find_T_between(n_begin,n_end,dSII_of_f):
+        dSII_of_f = dSII_of_f[n_begin:n_end]
+        dG_of_f, dB_of_f, _ = ROUTINE_GAIN_1(freq,ipol,dSII_of_f,degree=1)
+        dSIIx = ROUTINE_dSIIx(dSII_of_f,dB_of_f,dG_of_f)
+        Te_fit = ROUTINE_FIT_T(ipol,freq,dSIIx,i_slice,f_slice,Rjct=R)
+        return Te_fit
+    
+    Te_fit = []
+    L = len(dSII_of_f)
+    for n_being,n_end in zip(_np.r_[:L],_np.r_[1:L+1]):
+        tmp = find_T_between(n_being,n_end,dSII_of_f)
         Te_fit +=[ tmp ]
     return _np.r_[Te_fit]
 

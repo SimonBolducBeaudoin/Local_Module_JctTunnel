@@ -91,7 +91,7 @@ def centered_ref_X(X,ref=None,axis=-1,copy=True):
         ref = X[..., ::2] # suppose even positions are the references
     else :
         cnd = X
-    Y   = _np.full(cnd.shape,_np.nan)
+    Y   = _np.full(cnd.shape,_np.nan,dtype=X.dtype)
     Y[...,:-1] = cnd[...,:-1] - (ref[...,0:-1] + ref[...,1:] )/2.0 # other points are centered 
     Y[...,-1 ] = cnd[...,-1 ] -  ref[...,-1] # last point is biased 
     return Y.swapaxes(axis,-1)
