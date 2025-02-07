@@ -387,6 +387,8 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
                 self.psg.set_ampl(-135)                                    
                 self.yoko.set_and_wait(0,Waittime=self.yo_wait*2)
                 self.X.execute( self.ks, self.gz.get() )
+            # Forcing the reference to be Vdc = 0
+            vdc_next = 0 if vac_next == -135 else vdc_next
             self.psg.set_ampl(vac_next)                                  
             self.yoko.set(vdc_next)                                      
         self._log.event(0)
@@ -396,7 +398,7 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         else: # index_it.current_dim == 1 :
             self.Y.execute( self.ks, self.data_gz, i_exp=k ) 
         self._log.event(1)
-        super(dn2SyncExp,self)._loop_core(index_tuple,condition_tuple)
+        super(dn2SyncExp,self)._loop_core(index_tuple,(vdc_next,vac_next))
         
     def _last_loop_core_iteration(self,n):
         self.data_gz   = self.gz.get() # int16 
