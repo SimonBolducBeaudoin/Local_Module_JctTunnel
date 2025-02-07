@@ -281,6 +281,9 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
                 self.pump_phase[n+1] = self.get_phase(F=self.F,reps=self.reps_phase_mes)
                 self.reset_phase(f=self.F,p_target=self.phase_target_deg,reps=self.reps_phase_mes)    
                 self.gz.config(**gz_config)                
+            
+            # Forcing the reference to be Vdc = 0
+            vdc_next = 0 if vac_next == -135 else vdc_next
             self.psg.set_ampl(vac_next)                                  
             self.yoko.set(vdc_next)                                      
         

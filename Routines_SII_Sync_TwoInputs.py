@@ -336,6 +336,8 @@ class SIISyncExp(SIISyncInfo,Cross_Patern_Lagging_computation):
             self.is_ref = True if vac_next == -135 else False
             self.next_vac = vac_next 
             #################################################
+            # Forcing the reference to be Vdc = 0
+            vdc_next = 0 if vac_next == -135 else vdc_next
             self.psg.set_ampl(vac_next)                                  
             self.yoko.set(vdc_next)                                      
         
