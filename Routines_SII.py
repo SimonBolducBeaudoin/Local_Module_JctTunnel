@@ -8,6 +8,7 @@ from numpy.fft import rfft, ifftshift, rfftfreq
 from numpy import pi,convolve
 from scipy import constants as C
 from scipy.ndimage import convolve1d
+from scipy.interpolate import interp1d
 from numpy import polyfit
 from matplotlib.pyplot import subplots
 from numba import njit,vectorize,float64
@@ -514,6 +515,39 @@ def ROUTINE_AVG_GAIN(Vyoko,SII,Rtot,V_per_bin,l_kernel,gain_fit_params,windowing
     imin,imax   = build_imin_imax(freq,shape,**gain_fit_params)
     dP          = polyfit_multi_between(Ipol, dSII_of_f.swapaxes(-2,-1),imin,imax,deg=1) 
     return old_div(dP[0,...,-2],C.e)
+    
+def ROUTINE_AVG_GAIN_1(Vyoko,SII,Rtot,V_per_bin,l_kernel,gain_fit_params,sym=True,ref='interlaced'):
+    """
+    Intended for quadrature experiments
+    Return dG_of_f
+        No dmm ==> Ipol deduced from R_tot
+    """ 
+    # Already in freq just converting units
+    SII  = _np.nanmean(abs(SII),axis=0)[None,:]*_dt/(l_kernel-1)*(V_per_bin)**2/(50.0**2) ## A**2
+    dSII = centered_ref_X(SII,axis=-2)
+     
+    Vyoko = reshape_reorder_swap(Vyoko,axis=-1,sym=sym,ref=ref)
+    dSII  = reshape_reorder_swap(dSII,axis=-2,sym=sym,ref='first')
+      
+    Ipol = Vyoko[1,1]/Rtot
+    
+    # Les fréquences habituelles
+    freq     = rfftfreq(l_kernel,_dt)   # (129,)
+    # Les fréquences du SII (il faut interpolé)
+    freq_SII = rfftfreq(l_kernel-1,_dt) # (129,)
+
+    dSII_sym    = dSII.mean(axis=1)
+    # On en profite pour guarder les fréquences positives seulements
+    dSII_of_f   = dSII_sym[...,:len(freq)]
+    
+    # Correcting for the small discrepency in X axis.
+    f = interp1d(freq_SII, dSII_of_f,  kind='linear', fill_value="extrapolate", bounds_error=False,axis=-1)
+    dSII_of_f = f(freq)
+    
+    shape       = dSII_of_f.swapaxes(-2,-1).shape[:-1]
+    imin,imax   = build_imin_imax(freq,shape,**gain_fit_params)
+    dP          = polyfit_multi_between(Ipol, dSII_of_f.swapaxes(-2,-1),imin,imax,deg=1) 
+    return dP[0,...,-2]/C.e
 
 
 def ROUTINE_dSIIx(dSII_of_f,dB_of_f,dG_of_f):

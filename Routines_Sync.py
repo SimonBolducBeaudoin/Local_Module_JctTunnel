@@ -12,11 +12,12 @@ from SBB.Time_quadratures.time_quadratures          import TimeQuadSync_FFT_floa
 from SBB.Time_quadratures.kernels                   import make_kernels
 
 from SBB.Histograms.histograms_helper               import compute_moments2D
-from SBB.AutoCorr.aCorrsOTF.acorrs_otf              import ACorrUpTo
+#from SBB.AutoCorr.aCorrsOTF.acorrs_otf              import ACorrUpTo
+from SBB.AutoCorr.autocorr                          import autocorr_cyclo , autocorr_cyclo_m
 from SBB.FFT.DFT.utils                              import singleDFTterm
 
 # Local
-from .Routines_SII   import ROUTINE_AVG_GAIN
+from .Routines_SII   import ROUTINE_AVG_GAIN_1
 
 class dn2SyncInfo(Info):
     """
@@ -38,15 +39,16 @@ class dn2SyncInfo(Info):
             no_ref      : no_referencing is done
     """
     @staticmethod
-    def gen_meta_info(R_jct,R_tot,n_threads,l_data,dt,V_per_bin,l_kernel,F,t,alpha,betas,betas_info,Thetas,ks,Labels,nb_of_bin,period,max,l_fft,ref_idxs,gain_fit_params,yo_wait,moments_order,gz_phase_mes_params):
+    def gen_meta_info(R_jct,R_tot,n_threads,l_data,dt,V_per_bin,l_kernel,F,sampling_rate,t,alpha,betas,betas_info,Thetas,ks,Labels,nb_of_bin,period,max,l_fft,ref_idxs,gain_fit_params,yo_wait,moments_order,gz_phase_mes_params,sii_optimal):
         return {
             'R_jct':R_jct,'R_tot':R_tot,'n_threads':n_threads,
-            'l_data':l_data,'dt':dt,'V_per_bin':V_per_bin,'l_kernel':l_kernel,'F':F,
+            'l_data':l_data,'dt':dt,'V_per_bin':V_per_bin,'l_kernel':l_kernel,'F':F,'sampling_rate':sampling_rate,
             't':t,'alpha':alpha,'betas':betas,'betas_info':betas_info,'Thetas':Thetas,'ks':ks,'Labels':Labels,
             'nb_of_bin':nb_of_bin,'max':max,'l_fft':l_fft, 'ref_idxs':ref_idxs,
             'gain_fit_params':gain_fit_params,'yo_wait':yo_wait,
             'moments_order':moments_order,'period':period,
-            'gz_phase_mes_params':gz_phase_mes_params
+            'gz_phase_mes_params':gz_phase_mes_params,
+            'sii_optimal':sii_optimal
             }
     def _set_options(self,options):
         super(dn2SyncInfo,self)._set_options(options)
@@ -127,12 +129,16 @@ class dn2SyncInfo(Info):
         self.l_fft         = int(self.meta['l_fft'])
         self.nb_of_bin     = int(self.meta['nb_of_bin'])
         self.F             = int(self.meta['F'])
+        self.sampling_rate = int(self.meta['sampling_rate'])      # Sampling rate (int)(Hz)
         self.period        = int(self.meta['period'])
         self.gz_phase_mes_params        = self.meta['gz_phase_mes_params']
         self.Vdc_phase_cal  = self.gz_phase_mes_params.pop('Vdc_phase_cal')
         self.psg_A_phase_mes =  self.gz_phase_mes_params.pop('psg_A')
         self.phase_target_deg =  self.gz_phase_mes_params.pop('phase_target_deg')
         self.reps_phase_mes =  int(self.gz_phase_mes_params.pop('reps'))
+        
+        self.sii_optimal         = self.meta['sii_optimal']
+        self.sii_optimal.update( **{'F':self.F,'R':self.sampling_rate})
         
         ## important variables from filters
         self.t             = self.meta['t']
@@ -184,15 +190,17 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         self._init_acorr()
         self._init_TimeQuad()
         self._init_Histograms()
-    def get_SII(self,data,data_type = 'int16'):
-        acorr =  ACorrUpTo(self.l_kernel_sym,data_type)
-        acorr(data)
-        return (acorr.res).copy() # acorr.res is badbly implemented and unsafe. Copying the data removes some issues.
+    def get_SII(self,data):
+        # Only works for 1int16 fow now
+        # This will need to be multiplied by dt^2 to correspond to the phyisical value
+        # By default it is also normalized using numpy's "backward" convention for ffts
+        return autocorr_cyclo_m(data,m=0,**self.sii_optimal)
         
-    # def get_SII_phi (self,data,data_type = 'int16'):
-        # acorr = ACorrUpTo(self.l_kernel_sym,data_type,phi=self.period)
-        # acorr(data)
-        # return (acorr.res).copy() # acorr.res is badbly implemented and unsafe. Copying the data removes some issues.
+    def get_SII_phi (self,data):
+        # Only works for 1int16 fow now
+        # This will need to be multiplied by dt^2 to correspond to the phyisical value
+        # By default it is also normalized using numpy's "backward" convention for ffts
+        return autocorr_cyclo_m(data,m=0,**self.sii_optimal)
         
     def reset_objects(self):
         self.n_G_trck = 0
@@ -243,8 +251,8 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         acorr_vdc_shape         = ( n+1,l_vdc, ) 
         acorr_vac_shape         = ( n+1,l_vac, )
         data_type = 'int16'
-        self.SII_vdc            = np.full((n+1,l_vdc            ,self.l_kernel_sym),np.nan) 
-        #self.SII_vac            = np.full((l_vac,self.period,self.l_kernel_sym),np.nan)
+        self.SII_vdc            = np.full((n+1,l_vdc            ,self.l_kernel-1),np.nan,dtype=complex) # m=0 of f
+        self.SII_vac            = np.full((    l_vac            ,self.l_kernel-1),np.nan,dtype=complex) # m=0 of f
     def _init_TimeQuad(self):
         g               = np.ones((self.l_hc,),dtype=complex) # dummy fillter for initialization 
         self.make_kernels_d['g'] = g
@@ -316,7 +324,7 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         self.data_gz            = self.gz.get() # int16 
         self._log.event(0)
         self.SII_vdc[0,-1]= self.get_SII(self.data_gz)
-        self.G_avg = ROUTINE_AVG_GAIN(self._conditions_core_loop_raw[0],self.SII_vdc,self.meta['R_tot'],self.meta['V_per_bin'],self.l_kernel,self.gain_fit_params,windowing=True,i=65)
+        self.G_avg = ROUTINE_AVG_GAIN_1(self._conditions_core_loop_raw[0],self.SII_vdc,self.meta['R_tot'],self.meta['V_per_bin'],self.l_kernel,self.gain_fit_params)
         self._log.event(1)
         #################################################################################################
         ## Mesuring SII_vac for phase reference #########################################################
@@ -334,14 +342,14 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
             self.data_gz            = self.gz.get() # int16 
             self.psg.set_ampl(vac_next)
             self._log.event(0)
-            # self.SII_vac[k]= self.get_SII_phi(self.data_gz)
+            self.SII_vac[k]= self.get_SII_phi(self.data_gz)
             self._log.event(1)
             super(dn2SyncExp,self)._loop_core(idx_tpl,cdn_tpl)
         
         ### Last iteration of that loop
         self.data_gz            = self.gz.get() # int16 
         self._log.event(0)
-        # self.SII_vac[-1]= self.get_SII_phi(self.data_gz)
+        self.SII_vac[-1]= self.get_SII_phi(self.data_gz)
         
         super(dn2SyncExp,self)._loop_core(tuple(),tuple())
 
@@ -406,7 +414,7 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         l_Vac             = len(self._conditions_core_loop_raw[1])
         self.Y.execute( self.ks, self.data_gz, i_exp=l_Vac-1 ) 
         
-        self.G_avg = ROUTINE_AVG_GAIN(self._conditions_core_loop_raw[0],self.SII_vdc,self.meta['R_tot'],self.meta['V_per_bin'],self.l_kernel,self.gain_fit_params,windowing=True,i=65)
+        self.G_avg = ROUTINE_AVG_GAIN_1(self._conditions_core_loop_raw[0],self.SII_vdc,self.meta['R_tot'],self.meta['V_per_bin'],self.l_kernel,self.gain_fit_params)
         
         self.Hs_vac    += self.Y.Histograms(memory_transfert="share") # Much faster ! prevents useless copies ! In my test it went from 15 s to 5s.
         self.Hs_vacuum += self.X.Histograms()
@@ -437,7 +445,7 @@ class dn2SyncExp(dn2SyncInfo,Cross_Patern_Lagging_computation):
         'betas'         : self.betas ,
         'data_gz'       : self.data_gz[:1<<20], # first millon points of the last measurement
         'S2_vdc'        : self.SII_vdc,
-        #'S2_vac'        : self.SII_vac,
+        'S2_vac'        : self.SII_vac,
         'moments_vacuum': self.moments_vacuum,
         'moments_ac'    : self.moments_ac,
         'Vdc'           : self._conditions_core_loop_raw[0],
