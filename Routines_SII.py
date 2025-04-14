@@ -221,8 +221,9 @@ def ROUTINE_COMBINE_LOAD_9(files) :
     
     return R_jct,F,l_kernel
     
-def ROUTINE_COMBINE_LOAD_10(files) :
+def ROUTINE_COMBINE_LOAD_11(files) :
     """
+        ERROR NAME COLLISION WITH ROUTINE_COMBINE_LOAD_10
         Returns 
         Vdc,Vac, SII, dSII
     """
