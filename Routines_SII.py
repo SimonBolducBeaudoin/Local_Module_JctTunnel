@@ -431,6 +431,35 @@ def ROUTINE_SII_4(dSII_of_f,fast=True) :
     if fast :
         dSII_of_f  = _np.nanmean(dSII_of_f ,axis = 0)[None,...] 
     return  dSII.mean(axis=1)
+    
+def ROUTINE_SII_5(I_pol,SII_of_f,dSII_of_f,fast=True,l_kernel=257) :
+    """
+    Computes different noise_of_f metrics.
+    Returns 
+        freq,ipol,SII_of_f,SII_antisym_of_f,dSII_of_f
+    """
+    
+    # Les fréquences habituelles
+    #freq     = rfftfreq(l_kernel,_dt)   # (129,)
+    # Les fréquences du SII (il faut interpolé)
+    freq = rfftfreq(l_kernel-1,_dt) # (129,)
+    
+    if fast :
+        SII_of_f   = _np.nanmean(SII_of_f  ,axis = 0)[None,...]
+        dSII_of_f  = _np.nanmean(dSII_of_f ,axis = 0)[None,...]
+
+    if I_pol.ndim >=3 :
+        I_mean = _np.mean( [I_pol[0,0],I_pol[1,0]])
+        I_pol -= I_mean ## removing offset
+        ipol = I_pol[1,1]
+    else : #1 dim
+        ipol = I_pol
+        
+    SII_of_f_sym     = SII_of_f.mean(axis=1)
+    dSII_of_f_sym    = dSII_of_f.mean(axis=1)
+    SII_antisym_of_f = ( SII_of_f[:,1,...] - SII_of_f[:,0,...] )/2.0
+    
+    return freq,ipol,SII_of_f_sym,SII_antisym_of_f,dSII_of_f_sym
         
 def ROUTINE_GAIN_0 (freq,ipol,SII_of_f,dSII_of_f,degree = 1,R=70.00,T_xpctd=0.055,fmax =10.e9,imax=2.0e-6,epsilon=0.0001):
     """
